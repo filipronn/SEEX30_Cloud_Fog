@@ -12,15 +12,18 @@ def normalise_input_df(df,labels):
     
     return df
 
-def save_model_and_test_data(filepath,model,X_test,y_test):
+def save_model_and_test_data(filepath,model,X_test,y_test,history_df):
     
     model.save(filepath=filepath)
     X_test.to_csv(filepath+'/xtest.csv',index=False)
     y_test.to_csv(filepath+'/ytest.csv',index=False)
+    history_df.to_csv(filepath+'/history.csv',index=False)
 
 def load_model_and_test_data(filepath):
     model=tf.keras.models.load_model(filepath)
     X_test=pd.read_csv(filepath+'/xtest.csv')
     y_test=pd.read_csv(filepath+'/ytest.csv')
+    history_df=pd.read_csv(filepath+'/history.csv')
+    
 
-    return model, X_test, y_test
+    return model, X_test, y_test, history_df

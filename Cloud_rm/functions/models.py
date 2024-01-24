@@ -21,7 +21,7 @@ class LossHistory(Callback):
         self.hist.append(epoch_log)
 
 
-def train_simple_model(df,x_labels,y_labels,split,epochs):
+def train_simple_model(df,x_labels,y_labels,split,epochs,batch_size):
 
     ##Split data##
     X=df[x_labels]
@@ -48,8 +48,11 @@ def train_simple_model(df,x_labels,y_labels,split,epochs):
 
     ##Train model##
     history=LossHistory()
-    model.fit(X_train,y_train,epochs=epochs,validation_data=(X_val,y_val),callbacks=[history])
+    model.fit(X_train,y_train,epochs=epochs,validation_data=(X_val,y_val),batch_size=batch_size,callbacks=[history])
 
-    return model, history, X_test, y_test
+    #Make training history to a dataframe
+    history_df=pd.DataFrame(history.hist,index=None)
+    
+    return model, history_df, X_test, y_test
 
 
