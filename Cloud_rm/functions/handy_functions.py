@@ -12,6 +12,12 @@ def normalise_input_df(df,labels):
     
     return df
 
+def add_noise(df,labels,sigma=0.001):
+    for i,col in enumerate(labels):
+        noise=np.random.normal(0,sigma,len(df[col]))
+        df[col]=df[col]+noise
+    return df
+
 def save_model_and_test_data(filepath,model,X_test,y_test,history_df):
     
     model.save(filepath=filepath)
