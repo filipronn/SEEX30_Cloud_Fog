@@ -33,3 +33,8 @@ def load_model_and_test_data(filepath):
     
 
     return model, X_test, y_test, history_df
+
+def dumb_down_surface(df):
+
+    df['Surface_Desc_Dumb']=df['Surface_Desc'].str.split('-').str[0]
+    return df
