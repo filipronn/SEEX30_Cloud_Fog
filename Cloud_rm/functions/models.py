@@ -8,6 +8,7 @@ from tensorflow.python.keras import layers
 import tensorflow_probability as tfp
 from tensorflow.python.keras.callbacks import Callback
 from sklearn.model_selection import train_test_split
+import keras.backend as K
 
 import functions.handy_functions as hf
 
@@ -22,6 +23,14 @@ class LossHistory(Callback):
             'validation_loss': logs['val_loss']
         }
         self.hist.append(epoch_log)
+
+
+def split_data(X,y,split):
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=1-split[0])
+    res=1-split[0]
+    X_test, X_val, y_test, y_val = train_test_split(X_test,y_test, test_size=res-split[1])
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
 
 
 def train_simple_model(df,x_labels,y_labels,split,epochs,batch_size):
@@ -57,13 +66,16 @@ def train_simple_model(df,x_labels,y_labels,split,epochs,batch_size):
     
     return model, history_df, X_test, y_test
 
-def train_5layer_64neurons_model(df,x_labels,y_labels,split,epochs,batch_size):
+def train_5layer_64neurons_model(df,x_labels,y_labels,split,epochs,batch_size,loss_func='mse'):
 
     ##Split data##
     X=df[x_labels]
     y=df[y_labels]
-    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=split[1])
-    X_train, X_val, y_train, y_val = train_test_split(X_train,y_train, test_size=split[2])
+
+    X_train, y_train, X_val, y_val, X_test, y_test=split_data(X,y,split=split)
+
+    #X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=split[1])
+    #X_train, X_val, y_train, y_val = train_test_split(X_train,y_train, test_size=split[2])
 
     
     ##Create model##
@@ -78,7 +90,7 @@ def train_5layer_64neurons_model(df,x_labels,y_labels,split,epochs,batch_size):
     ##Compile model##
     model.compile(
         optimizer="adam",
-        loss='mse',
+        loss=loss_func,
         metrics=["mse"],
         run_eagerly=True
     )

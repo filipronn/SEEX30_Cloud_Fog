@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from sklearn.model_selection import train_test_split
 
 def normalise_input_df(df,labels):
     #Normalise to zero mean unit variance for all given column labels
@@ -38,3 +39,10 @@ def dumb_down_surface(df):
 
     df['Surface_Desc_Dumb']=df['Surface_Desc'].str.split('-').str[0]
     return df
+
+def split_data(X,y,split): #Train test split
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=1-split[0])
+    res=1-split[0]
+    X_test, X_val, y_test, y_val = train_test_split(X_test,y_test, test_size=res-split[1])
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
