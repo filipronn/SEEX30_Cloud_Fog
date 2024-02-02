@@ -110,6 +110,40 @@ def posterior(kernel_size, bias_size, dtype=None):
         tfp.layers.IndependentNormal(n)
     ])
 
+class LossHistory_Bayes(Callback):
+    def __init__(self,model,validation_data):
+        self.hist=[]
+        self.validation_data=validation_data
+
+    def on_epoch_end(self, epoch, logs=None):
+
+        last_layer = self.model.layers[-1]
+        last_layer_output=last_layer.output
+
+        posterior_mean = last_layer_output[:, :last_layer.units]
+        posterior_covariance = last_layer_output[:, last_layer.units:]
+
+        X_val = self.validation_data
+
+        # Get predictions on validation data
+        predictions = self.model.predict(X_val)
+
+        # Calculate mean and covariance on predictions
+        mean_val = tf.reduce_mean(predictions[:, :last_layer.units], axis=0).numpy()
+        covariance_val = tfp.stats.covariance(predictions[:, last_layer.units:]).numpy()
+
+        epoch_log = {
+            'epoch': epoch + 1,
+            'training_loss': logs['loss'],
+            'validation_loss': logs['val_loss'],
+            'posterior_mean':mean_val,
+            'posterior_covariance':covariance_val
+        }
+        self.hist.append(epoch_log)
+
+
+        
+
 
 def train_first_bayesian_model(df,x_labels,y_labels,split,epochs,batch_size):
 
@@ -130,8 +164,8 @@ def train_first_bayesian_model(df,x_labels,y_labels,split,epochs,batch_size):
     model=tf.keras.Sequential([
         layers.Dense(32,input_dim=len(x_labels),activation='linear'),
         layers.Dense(64,activation='relu'),
-        tfp.layers.DenseVariational(64,posterior,prior,activation='relu'),
-        layers.Dense(len(y_labels),activation='linear')
+        layers.Dense(64,activation='relu'),
+        tfp.layers.DenseVariational(len(y_labels),make_posterior_fn=posterior,make_prior_fn=prior,activation='linear')
     ])
 
     ##Compile model##
@@ -143,7 +177,7 @@ def train_first_bayesian_model(df,x_labels,y_labels,split,epochs,batch_size):
     )
 
     ##Train model##
-    history=LossHistory()
+    history=LossHistory_Bayes(model=model,validation_data=X_val)
     model.fit(X_train,y_train,epochs=epochs,validation_data=(X_val,y_val),batch_size=batch_size,callbacks=[history])
 
     #Make training history to a dataframe
