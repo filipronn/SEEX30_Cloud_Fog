@@ -46,3 +46,19 @@ def split_data(X,y,split): #Train test split
     X_test, X_val, y_test, y_val = train_test_split(X_test,y_test, test_size=res-split[1])
 
     return X_train, y_train, X_val, y_val, X_test, y_test
+
+
+def add_MSI_noise(df,x_labels):
+    #The two values of 10 in SNR is the channels that are not specified on the MSI instrument document.
+    #SNR_from_channel_2=[102, 79, 45, 45, 34, 26, 20, 16, 10, 10, 2.8, 2.2]
+
+    SNR_from_channel_2=[154, 168, 142, 117, 89, 105, 20, 174, 114, 50, 100, 100] #From https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-2-msi/resolutions/spectral
+
+    for i,label in enumerate(x_labels):
+        col=df[label].to_numpy()
+        noise_std=np.mean(col)/SNR_from_channel_2[i]
+        print("Noise standard deviation for "+str(label)+": "+str(noise_std))
+        noise=np.random.normal(0,noise_std,size=len(col)) #Zero mean
+        df[label]=col+noise
+
+    return df
