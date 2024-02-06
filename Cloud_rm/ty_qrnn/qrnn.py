@@ -23,18 +23,14 @@ from scipy.interpolate import CubicSpline
 ################################################################################
 
 try:
-    import typhon.retrieval.qrnn.models.keras as keras
+    import ty_qrnn.models.keras as keras
     backend = keras
-except Exception as e:
-    try:
-        import typhon.retrieval.qrnn.models.pytorch as pytorch
-        backend = pytorch
-    except:
-        raise Exception("Couldn't import neither Keras nor Pytorch "
-                        "one of them must be available to use the QRNN"
-                        " module.")
+except:
+    raise Exception("Couldn't import Keras."
+                    " Keras must be available to use the QRNN"
+                    " module.")
 
-def set_backend(name):
+def set_backend():
     """
     Set the neural network package to use as backend.
 
@@ -44,22 +40,14 @@ def set_backend(name):
         name(str): The name of the backend.
     """
     global backend
-    if name == "keras":
-        try:
-            import typhon.retrieval.qrnn.models.keras as keras
-            backend = keras
-        except Exception as e:
-            raise Exception("The following error occurred while trying "
-                            " to import keras: ", e)
-    elif name == "pytorch":
-        try:
-            import typhon.retrieval.qrnn.models.pytorch as pytorch
-            backend = pytorch
-        except Exception as e:
-            raise Exception("The following error occurred while trying "
-                            " to import pytorch: ", e)
-    else:
-        raise Exception("\"{}\" is not a supported backend.".format(name))
+    
+    try:
+        import models.keras as keras
+        backend = keras
+    except Exception as e:
+        raise Exception("The following error occurred while trying "
+                        " to import keras: ", e)
+
 
 def get_backend(name):
     """
@@ -70,23 +58,13 @@ def get_backend(name):
     Args:
         name(str): The name of the backend.
     """
-    if name == "keras":
-        try:
-            import typhon.retrieval.qrnn.models.keras as keras
-            backend = keras
-        except Exception as e:
-            raise Exception("The following error occurred while trying "
-                            " to import keras: ", e)
-    elif name == "pytorch":
-        try:
-            import typhon.retrieval.qrnn.models.pytorch as pytorch
-            backend = pytorch
-        except Exception as e:
-            raise Exception("The following error occurred while trying "
-                            " to import pytorch: ", e)
-    else:
-        raise Exception("\"{}\" is not a supported backend.".format(name))
-    return backend
+    try:
+        import ty_qrnn.models.keras as keras
+        backend = keras
+    except Exception as e:
+        raise Exception("The following error occurred while trying "
+                        " to import keras: ", e)
+
 
 def fit_gaussian_to_quantiles(y_pred, taus):
     """
