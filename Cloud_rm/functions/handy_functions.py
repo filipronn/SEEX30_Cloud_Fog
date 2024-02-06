@@ -31,7 +31,6 @@ def load_model_and_test_data(filepath):
     X_test=pd.read_csv(filepath+'/xtest.csv')
     y_test=pd.read_csv(filepath+'/ytest.csv')
     history_df=pd.read_csv(filepath+'/history.csv')
-    
 
     return model, X_test, y_test, history_df
 
