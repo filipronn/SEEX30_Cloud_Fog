@@ -11,6 +11,8 @@ import torch.optim as optim
 from py_torch_qrnn_adapt.utils import create_folds, batches
 from py_torch_qrnn_adapt.torch_utils import clip_gradient, logsumexp
 
+from sklearn.metrics import mean_squared_error
+
 from tqdm import tqdm
 
 '''Neural network to map from X to quantile(s) of y.'''
@@ -75,6 +77,13 @@ class QuantileNetwork:
 
     def predict(self, X):
         return self.model.predict(X)
+    
+    def PSNR(y_true,y_pred):
+        mse = mean_squared_error(y_true,y_pred)
+        maxval = np.amax(y_true)
+        PSNR = 10*np.log10(maxval/mse)
+        
+        return PSNR
 
 def fit_quantiles(X, y, quantiles=0.5, lossfn = 'marginal',
                     nepochs=100, val_pct=0.1,
@@ -174,8 +183,6 @@ def fit_quantiles(X, y, quantiles=0.5, lossfn = 'marginal',
         train_loss = torch.Tensor([0])
         for batch in tqdm(batches(train_indices, batch_size, shuffle=True), desc="Batch number: "):
         #for batch_idx, batch in enumerate(batches(train_indices, batch_size, shuffle=True)):
-            #if verbose and (batch_idx % 100 == 0):
-            #    print('Batch {}'.format(batch_idx))
             tidx = autograd.Variable(torch.LongTensor(batch), requires_grad=False)
 
             # Set the model to training mode
