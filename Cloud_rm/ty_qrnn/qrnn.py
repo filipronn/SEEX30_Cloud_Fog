@@ -181,6 +181,7 @@ class QRNN:
     """
     def __init__(self,
                  input_dimensions,
+                 output_dimensions, #NEW LINE
                  quantiles=None,
                  model=(3, 128, "relu"),
                  ensemble_size=1,
@@ -203,11 +204,13 @@ class QRNN:
                 and :code:`act` activation functions.
         """
         self.input_dimensions = input_dimensions
+        self.output_dimensions = output_dimensions #NEW LINE
         self.quantiles = np.array(quantiles)
         self.backend = backend.__name__
 
         if type(model) == tuple:
             self.model = backend.FullyConnected(self.input_dimensions,
+                                                self.output_dimensions, #NEW LINE
                                                 self.quantiles,
                                                 model)
             if quantiles is None:

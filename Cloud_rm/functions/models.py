@@ -28,7 +28,7 @@ class LossHistory(Callback):
 def split_data(X,y,split):
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=1-split[0])
     res=1-split[0]
-    X_test, X_val, y_test, y_val = train_test_split(X_test,y_test, test_size=res-split[1])
+    X_test, X_val, y_test, y_val = train_test_split(X_test,y_test, test_size=res/2)
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 

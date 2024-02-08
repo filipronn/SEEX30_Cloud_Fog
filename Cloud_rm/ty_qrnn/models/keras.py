@@ -46,6 +46,7 @@ def load_model(f, quantiles):
     def make_fully_connected(layers=None, **kwargs):
         layers = list(map(deserialize, layers))
         input_dimensions = layers[0].batch_input_shape[1]
+        #output_dimension = 
         return FullyConnected(input_dimensions, quantiles, (), layers)
 
     custom_objects = {
@@ -368,7 +369,7 @@ class KerasModel:
             neural network.
     """
 
-    def __init__(self, input_dimension, quantiles):
+    def __init__(self, input_dimension,output_dimension, quantiles):
         """
         Create a QRNN model.
 
@@ -381,6 +382,7 @@ class KerasModel:
                                  within the range [0, 1].
         """
         self.input_dimension = input_dimension
+        self.output_dimension = output_dimension
         self.quantiles = np.array(quantiles)
 
     def reset(self):
@@ -413,6 +415,10 @@ class KerasModel:
                     "When training data is provided as tuple"
                     " (x, y) it must contain numpy arrays."
                 )
+            
+            if np.shape(training_data[1])[1]>1: #If multiple target variables, ##NEW LINES
+                training_data=(training_data[0], np.repeat(training_data[1],len(self.quantiles),axis=1))
+
             training_data = BatchedDataset(training_data, batch_size)
 
         if type(validation_data) is tuple:
@@ -445,7 +451,7 @@ class KerasModel:
         lr_callback = LRDecay(
             self, learning_rate_decay, learning_rate_minimum, convergence_epochs
         )
-        self.fit_generator(
+        self.fit(
             training_generator,
             steps_per_epoch=len(training_generator),
             epochs=maximum_epochs,
@@ -465,7 +471,7 @@ class FullyConnected(KerasModel, Sequential):
     Keras implementation of fully-connected networks.
     """
 
-    def __init__(self, input_dimension, quantiles, arch, layers=None):
+    def __init__(self, input_dimension, output_dimension_y, quantiles, arch, layers=None):
         """
         Create a fully-connected neural network.
 
@@ -479,11 +485,11 @@ class FullyConnected(KerasModel, Sequential):
                 to be used as string.
         """
         quantiles = np.array(quantiles)
-        output_dimension = quantiles.size
+        output_dimension_q = quantiles.size
 
         if layers is None:
             if len(arch) == 0:
-                layers = [Dense(output_dimension, input_shape=(input_dimension))]
+                layers = [Dense(output_dimension_q*output_dimension_y, input_shape=(input_dimension))]
             else:
                 d, w, a = arch
                 layers = [Dense(w, input_shape=(input_dimension,))]
@@ -491,7 +497,7 @@ class FullyConnected(KerasModel, Sequential):
                     layers.append(Dense(w, input_shape=(w,)))
                     if a is not None:
                         layers.append(Activation(a))
-                layers.append(Dense(output_dimension, input_shape=(w,)))
+                layers.append(Dense(output_dimension_q*output_dimension_y, input_shape=(w,)))
 
-        KerasModel.__init__(self, input_dimension, quantiles)
+        KerasModel.__init__(self, input_dimension, output_dimension_y, quantiles)
         Sequential.__init__(self, layers)
