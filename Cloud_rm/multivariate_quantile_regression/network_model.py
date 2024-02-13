@@ -6,7 +6,7 @@ import torch.autograd as autograd
 import torch.nn as nn
 import torch.optim as optim
 
-from py_torch_qrnn_adapt.utils import create_folds, batches
+from multivariate_quantile_regression.utils import batches
 #from utils import create_folds, batches
 #from torch_utils import clip_gradient, logsumexp
 
@@ -100,7 +100,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
     model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std)
 
-    optimizer = optim.SGD(model.parameters()) #Set optimiser, atm Stochastic Gradient Descent
+    optimizer = optim.Adam(model.parameters()) #Set optimiser, atm Stochastic Gradient Descent
     tquantiles = torch.FloatTensor(quantiles)
     
     train_indices=np.sort(train_indices)
@@ -127,10 +127,12 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         sys.stdout.flush()
 
         train_loss = torch.Tensor([0])
-
-        for batch in tqdm(batches(train_indices, batch_size, shuffle=True), desc="Batch number"):
+        
+        for batch in tqdm(batches(train_indices, batch_size, shuffle=True),
+                          total=int(np.ceil(len(train_indices)/batch_size)),
+                          desc="Batch number"):
             idx = torch.LongTensor(batch)
-            
+
             model.train() #Initialise train mode
             model.zero_grad() #Reset gradient
 
@@ -154,7 +156,9 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
             validation_loss=validation_loss+lossfn(yhat, idx).sum()
 
-        print('Training loss {}'.format(train_loss.data.numpy()/float(len(train_indices)))+' Validation loss {}'.format(validation_loss.data.numpy()/float(len(val_indices))))
+        print('Training loss {}'.format(train_loss.data.numpy()/float(len(train_indices)))+
+              ' Validation loss {}'.format(validation_loss.data.numpy()/float(len(val_indices))),
+              end=None)
         sys.stdout.flush()
 
 
