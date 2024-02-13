@@ -136,7 +136,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
             yhat = model(tX[idx]) #Run algorithm
 
-            loss=lossfn(yhat,idx).mean() #Run loss function
+            loss=lossfn(yhat,idx).sum() #Run loss function
             loss.backward() #Calculate gradient
 
             optimizer.step()
@@ -154,7 +154,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
             validation_loss=validation_loss+lossfn(yhat, idx).sum()
 
-        print('Training loss {}'.format(train_loss.data.numpy()[0])+' Validation loss {}'.format(validation_loss.data.numpy()[0]))
+        print('Training loss {}'.format(train_loss.data.numpy()/float(len(train_indices)))+' Validation loss {}'.format(validation_loss.data.numpy()/float(len(val_indices))))
         sys.stdout.flush()
 
 
