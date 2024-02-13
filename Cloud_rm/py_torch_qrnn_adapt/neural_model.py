@@ -85,14 +85,14 @@ class QuantileNetwork:
         
         return PSNR
     
-    def calc_outrate(y_test,preds):
+    def calc_outrate(y_test_np,preds):
         outcount = 0
         for i in range(np.shape(y_test_np)[0]):
             for j in range(np.shape(y_test_np)[1]):
                 if y_test_np[i,j] < preds[i,j,0] or y_test_np[i,j] > preds[i,j,2]:
                     outcount = outcount +1
 
-        outrate = outcount/np.size(y_test)
+        outrate = outcount/np.size(y_test_np)
         return outrate
 
 def fit_quantiles(X, y, quantiles=0.5, lossfn = 'marginal',
