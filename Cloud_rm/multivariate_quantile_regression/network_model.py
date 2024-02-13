@@ -15,8 +15,12 @@ from tqdm import tqdm
 
 
 class QuantileNetworkMM(nn.Module):
-    def __init__(self,n_in,n_out,y_dim):
-        super(QuantileNetworkMM).__init__()
+    def __init__(self,n_in,n_out,y_dim, X_means, X_stds, y_mean, y_std):
+        super(QuantileNetworkMM, self).__init__()
+        self.X_means = X_means
+        self.X_stds = X_stds
+        self.y_mean = y_mean
+        self.y_std = y_std
         self.n_in=n_in
         self.n_out=n_out
         self.y_dim=y_dim
@@ -25,18 +29,37 @@ class QuantileNetworkMM(nn.Module):
             nn.ReLU(),
             nn.Linear(64,64),
             nn.ReLU(),
-            nn.Linear(64,self.n_out)
+            nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim)
         )
+        self.softplus = nn.Softplus()
 
     def forward(self,x):
-        out=self.linear(x)
-        return out
+        fout = self.linear(x)
+        # If we are dealing with multivariate responses, reshape to the (d x q) dimensions
+        if len(self.y_mean.shape) != 1:
+            fout = fout.reshape((-1, self.y_mean.shape[1], self.n_out))
+
+        # If we only have 1 quantile, no need to do anything else
+        if self.n_out == 1:
+            return fout
+
+        # Enforce monotonicity of the quantiles
+        return torch.cat((fout[...,0:1], fout[...,0:1] + torch.cumsum(self.softplus(fout[...,1:]), dim=-1)), dim=-1)
+    
+    def predict(self,x):
+        self.eval()
+        self.zero_grad()
+        tX=torch.FloatTensor(x)
+        out=self.forward(tX)
+        return out.data.numpy()
 
 class QuantileNetwork():
-    
-    def __intit__(self,quantiles,loss='quantile'):
+    def __init__(self,quantiles,loss='quantile'):
         self.quantiles=quantiles
         self.lossfn=loss
+
+    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs):
+        self.model = fit_quantiles(X, y, train_indices, validation_indices, quantiles=self.quantiles, batch_size=batch_size, n_epochs=nepochs)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -58,41 +81,46 @@ class QuantileNetwork():
         outrate = outcount/np.size(y_test_np)
         return outrate
 
-def fit_quantiles(X,y,X_val,y_val,quantiles,n_epochs,batch_size,loss='quantile'):
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,loss='quantile'):
 
-    X_mean=np.mean(X)
-    y_mean=np.mean(y)
-    n_in=len(X_mean)
+    X_mean=np.mean(X,axis=0,keepdims=True)
+    X_std=np.std(X,axis=0,keepdims=True)
+    y_mean=np.mean(y,axis=0,keepdims=True)
+    y_std=np.std(y,axis=0,keepdims=True)
+    n_in=len(X_mean[0])
     n_out=len(quantiles)
-    y_dim=len(y_mean)
+    y_dim=len(y_mean[0])
+
+    tX = torch.FloatTensor(X)
+    tY = torch.FloatTensor(y)
 
     #Initiate loss tracking
     train_losses=np.zeros(n_epochs)
     val_losses=np.zeros(n_epochs)
 
-    model=QuantileNetworkMM(n_in,n_out,y_dim)
+    model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std)
 
     optimizer = optim.SGD(model.parameters()) #Set optimiser, atm Stochastic Gradient Descent
-    tquantiles = autograd.Variable(torch.FloatTensor(quantiles), requires_grad=False) # I dont know what this does yet
+    tquantiles = torch.FloatTensor(quantiles)
     
-    train_indices=np.arange(X.shape[0], dtype=int)
-    val_indices=np.arange(X_val.shape[0], dtype=int)
+    train_indices=np.sort(train_indices)
+    val_indices=np.sort(validation_indices)
 
 
     # Univariate quantile loss
     def quantile_loss(yhat, idx):
-        z = y[idx,None] - yhat
+        z = tY[idx,None] - yhat
         return torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
 
     # Marginal quantile loss for multivariate response
     def marginal_loss(yhat, idx):
-        z = y[idx,:,None] - yhat
+        z = tY[idx,:,None] - yhat
         return torch.max(tquantiles[None,None]*z, (tquantiles[None,None] - 1)*z)
     
     if len(y.shape) == 1 or y.shape[1] == 1: #If Univariate
         lossfn = quantile_loss
     else:
-        lossfn=marginal_loss
+        lossfn = marginal_loss
 
     for epoch in range(n_epochs):
         print('Epoch {}'.format(epoch+1))
@@ -100,14 +128,15 @@ def fit_quantiles(X,y,X_val,y_val,quantiles,n_epochs,batch_size,loss='quantile')
 
         train_loss = torch.Tensor([0])
 
-        for batch in tqdm(batches(train_indices, batch_size, shuffle=True), desc="Batch number: "):
-            idx = autograd.Variable(torch.LongTensor(batch), requires_grad=False)
+        for batch in tqdm(batches(train_indices, batch_size, shuffle=True), desc="Batch number"):
+            idx = torch.LongTensor(batch)
             
             model.train() #Initialise train mode
             model.zero_grad() #Reset gradient
-            yhat = model(X[idx]) #Run algorithm
 
-            loss=lossfn(yhat) #Run loss function
+            yhat = model(tX[idx]) #Run algorithm
+
+            loss=lossfn(yhat,idx).mean() #Run loss function
             loss.backward() #Calculate gradient
 
             optimizer.step()
@@ -116,17 +145,22 @@ def fit_quantiles(X,y,X_val,y_val,quantiles,n_epochs,batch_size,loss='quantile')
 
         validation_loss = torch.Tensor([0])
         for batch_idx, batch in enumerate(batches(val_indices, batch_size, shuffle=False)):
-            idx = autograd.Variable(torch.LongTensor(batch), requires_grad=False)
+            idx = torch.LongTensor(batch)
 
             model.eval() #Set evaluation mode
             model.zero_grad() #Reset gradient
 
-            yhat=model(X[idx])
+            yhat=model(tX[idx])
 
             validation_loss=validation_loss+lossfn(yhat, idx).sum()
 
+        print('Training loss {}'.format(train_loss.data.numpy()[0])+' Validation loss {}'.format(validation_loss.data.numpy()[0]))
+        sys.stdout.flush()
+
+
     train_losses[epoch] = train_loss.data.numpy() / float(len(train_indices))
     val_losses[epoch] = validation_loss.data.numpy() / float(len(val_indices))
+
 
     return model
 
