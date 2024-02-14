@@ -27,7 +27,7 @@ class QuantileNetworkMM(nn.Module):
         self.n_out=n_out
         self.y_dim=y_dim
         self.linear=seq
-        
+
 
         self.softplus = nn.Softplus()
 
@@ -57,7 +57,7 @@ class QuantileNetwork():
         self.lossfn=loss
 
     def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence):
-        self.model = fit_quantiles(X, y, train_indices, validation_indices, quantiles=self.quantiles, batch_size=batch_size, sequence=sequence, n_epochs=nepochs)
+        self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices, quantiles=self.quantiles, batch_size=batch_size, sequence=sequence, n_epochs=nepochs)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -176,5 +176,5 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         os.remove('tmp_file')
         print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses)+1))
 
-    return model
+    return model, train_losses, val_losses
 
