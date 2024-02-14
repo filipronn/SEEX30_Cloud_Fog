@@ -33,9 +33,9 @@ class QuantileNetworkMM(nn.Module):
         #    nn.ReLU(),
         #    nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim)
         #)
-        seq.append(nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim))
+        #seq.append(nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim))
         self.linear=seq
-        
+
         self.softplus = nn.Softplus()
 
     def forward(self,x):
