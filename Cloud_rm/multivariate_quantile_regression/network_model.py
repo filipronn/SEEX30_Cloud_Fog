@@ -1,7 +1,9 @@
 import numpy as np
 import os
 import sys
-import torch
+
+
+import torch 
 import torch.autograd as autograd
 import torch.nn as nn
 import torch.optim as optim
@@ -15,7 +17,7 @@ from tqdm import tqdm
 
 
 class QuantileNetworkMM(nn.Module):
-    def __init__(self,n_in,n_out,y_dim, X_means, X_stds, y_mean, y_std):
+    def __init__(self,n_in,n_out,y_dim, X_means, X_stds, y_mean, y_std, seq):
         super(QuantileNetworkMM, self).__init__()
         self.X_means = X_means
         self.X_stds = X_stds
@@ -24,13 +26,16 @@ class QuantileNetworkMM(nn.Module):
         self.n_in=n_in
         self.n_out=n_out
         self.y_dim=y_dim
-        self.linear=nn.Sequential(
-            nn.Linear(self.n_in,64),
-            nn.ReLU(),
-            nn.Linear(64,64),
-            nn.ReLU(),
-            nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim)
-        )
+        #self.linear=nn.Sequential(
+        #    nn.Linear(self.n_in,64),
+        #    nn.ReLU(),
+        #    nn.Linear(64,64),
+        #    nn.ReLU(),
+        #    nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim)
+        #)
+        seq.append(nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim))
+        self.linear=seq
+        
         self.softplus = nn.Softplus()
 
     def forward(self,x):
@@ -58,8 +63,8 @@ class QuantileNetwork():
         self.quantiles=quantiles
         self.lossfn=loss
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs):
-        self.model = fit_quantiles(X, y, train_indices, validation_indices, quantiles=self.quantiles, batch_size=batch_size, n_epochs=nepochs)
+    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence):
+        self.model = fit_quantiles(X, y, train_indices, validation_indices, quantiles=self.quantiles, batch_size=batch_size, sequence=sequence, n_epochs=nepochs)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -81,7 +86,7 @@ class QuantileNetwork():
         outrate = outcount/np.size(y_test_np)
         return outrate
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,loss='quantile',file_checkpoints=True):
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,loss='quantile',file_checkpoints=True):
 
     X_mean=np.mean(X,axis=0,keepdims=True)
     X_std=np.std(X,axis=0,keepdims=True)
@@ -99,7 +104,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     val_losses=np.zeros(n_epochs)
     val_losses[0]=10000000 #For finding lowest new validation error later
 
-    model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std)
+    model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std,seq=sequence)
 
     optimizer = optim.Adam(model.parameters()) #Set optimiser, atm Stochastic Gradient Descent
     tquantiles = torch.FloatTensor(quantiles)
@@ -177,7 +182,6 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         model=torch.load('tmp_file')
         os.remove('tmp_file')
         print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses)+1))
-
 
     return model
 
