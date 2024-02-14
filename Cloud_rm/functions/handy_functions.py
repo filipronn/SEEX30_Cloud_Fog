@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
+import torch
 
 def normalise_input_df(df,labels):
     #Normalise to zero mean unit variance for all given column labels
@@ -19,18 +20,28 @@ def add_noise(df,labels,sigma=0.001):
         df[col]=df[col]+noise
     return df
 
-def save_model_and_test_data(filepath,model,X_test,y_test,history_df):
+def save_model_and_test_data(filepath,model,X_test,y_test,history_df,pytorch=True,save_history=False):
     
-    model.save(filepath=filepath)
+    if pytorch:
+        torch.save(model,filepath)
+    else:
+        model.save(filepath=filepath)
+
     X_test.to_csv(filepath+'/xtest.csv',index=False)
     y_test.to_csv(filepath+'/ytest.csv',index=False)
-    history_df.to_csv(filepath+'/history.csv',index=False)
 
-def load_model_and_test_data(filepath):
-    model=tf.keras.models.load_model(filepath)
+    if save_history:
+        history_df.to_csv(filepath+'/history.csv',index=False)
+
+def load_model_and_test_data(filepath,pytorch=True,load_history=False):
+    if pytorch:
+        model=torch.load(filepath)
+    else:
+        model=tf.keras.models.load_model(filepath)
     X_test=pd.read_csv(filepath+'/xtest.csv')
     y_test=pd.read_csv(filepath+'/ytest.csv')
-    history_df=pd.read_csv(filepath+'/history.csv')
+    if load_history:
+        history_df=pd.read_csv(filepath+'/history.csv')
 
     return model, X_test, y_test, history_df
 

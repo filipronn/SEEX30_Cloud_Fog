@@ -81,7 +81,7 @@ class QuantileNetwork():
         outrate = outcount/np.size(y_test_np)
         return outrate
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,loss='quantile'):
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,loss='quantile',file_checkpoints=True):
 
     X_mean=np.mean(X,axis=0,keepdims=True)
     X_std=np.std(X,axis=0,keepdims=True)
@@ -97,6 +97,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     #Initiate loss tracking
     train_losses=np.zeros(n_epochs)
     val_losses=np.zeros(n_epochs)
+    val_losses[0]=10000000 #For finding lowest new validation error later
 
     model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std)
 
@@ -161,9 +162,21 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
               end=None)
         sys.stdout.flush()
 
+        train_loss = train_loss.data.numpy() / float(len(train_indices))
+        validation_loss = validation_loss.data.numpy() / float(len(val_indices))
 
-    train_losses[epoch] = train_loss.data.numpy() / float(len(train_indices))
-    val_losses[epoch] = validation_loss.data.numpy() / float(len(val_indices))
+        if validation_loss[0]<np.min(val_losses[val_losses!=0.0]):
+            if file_checkpoints:
+                torch.save(model,'tmp_file')            
+            print("----New best validation loss---- {}".format(validation_loss))
+
+        train_losses[epoch] = train_loss
+        val_losses[epoch] = validation_loss
+
+    if file_checkpoints:
+        model=torch.load('tmp_file')
+        os.remove('tmp_file')
+        print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses)+1))
 
 
     return model
