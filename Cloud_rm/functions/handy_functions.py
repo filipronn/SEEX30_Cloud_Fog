@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import torch
+import os
 
 def normalise_input_df(df,labels):
     #Normalise to zero mean unit variance for all given column labels
@@ -20,10 +21,11 @@ def add_noise(df,labels,sigma=0.001):
         df[col]=df[col]+noise
     return df
 
-def save_model_and_test_data(filepath,model,X_test,y_test,history_df,pytorch=True,save_history=False):
+def save_model_and_test_data(filepath,model,X_test,y_test,pytorch=True,save_history=False,history_df=None):
     
     if pytorch:
-        torch.save(model,filepath)
+        os.makedirs(filepath,exist_ok=True)
+        torch.save(model,filepath+'/model_file')
     else:
         model.save(filepath=filepath)
 
@@ -35,15 +37,19 @@ def save_model_and_test_data(filepath,model,X_test,y_test,history_df,pytorch=Tru
 
 def load_model_and_test_data(filepath,pytorch=True,load_history=False):
     if pytorch:
-        model=torch.load(filepath)
+        model=torch.load(filepath+'/model_file')
     else:
         model=tf.keras.models.load_model(filepath)
     X_test=pd.read_csv(filepath+'/xtest.csv')
     y_test=pd.read_csv(filepath+'/ytest.csv')
+    
     if load_history:
         history_df=pd.read_csv(filepath+'/history.csv')
-
-    return model, X_test, y_test, history_df
+        return model, X_test, y_test, history_df
+    else:
+        return model, X_test, y_test
+         
+    
 
 def dumb_down_surface(df):
 

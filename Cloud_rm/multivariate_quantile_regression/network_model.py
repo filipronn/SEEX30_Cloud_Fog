@@ -26,15 +26,8 @@ class QuantileNetworkMM(nn.Module):
         self.n_in=n_in
         self.n_out=n_out
         self.y_dim=y_dim
-        #self.linear=nn.Sequential(
-        #    nn.Linear(self.n_in,64),
-        #    nn.ReLU(),
-        #    nn.Linear(64,64),
-        #    nn.ReLU(),
-        #    nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim)
-        #)
-        #seq.append(nn.Linear(64, self.n_out if self.y_dim == 1 else self.n_out * self.y_dim))
         self.linear=seq
+        
 
         self.softplus = nn.Softplus()
 
