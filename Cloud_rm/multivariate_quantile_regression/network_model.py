@@ -81,6 +81,15 @@ class QuantileNetwork():
 
 def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,loss='quantile',file_checkpoints=True):
 
+    # Check if CUDA (GPU support) is available
+    if torch.cuda.is_available():
+        # CUDA is available, so let's use the GPU
+        torch.set_default_device(0)
+        print("CUDA is available. Using GPU.")
+    else:
+        # CUDA is not available, so let's use the CPU
+        print("CUDA is not available. Using CPU.")
+
     X_mean=np.mean(X,axis=0,keepdims=True)
     X_std=np.std(X,axis=0,keepdims=True)
     y_mean=np.mean(y,axis=0,keepdims=True)
