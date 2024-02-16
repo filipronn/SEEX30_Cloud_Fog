@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 
 class QuantileNetworkMM(nn.Module):
-    def __init__(self,n_in,n_out,y_dim, X_means, X_stds, y_mean, y_std, seq):
+    def __init__(self,n_in,n_out,y_dim, X_means, X_stds, y_mean, y_std, seq, device):
         super(QuantileNetworkMM, self).__init__()
         self.X_means = X_means
         self.X_stds = X_stds
@@ -27,6 +27,7 @@ class QuantileNetworkMM(nn.Module):
         self.n_out=n_out
         self.y_dim=y_dim
         self.linear=seq
+        self.device=device
 
 
         self.softplus = nn.Softplus()
@@ -47,17 +48,26 @@ class QuantileNetworkMM(nn.Module):
     def predict(self,x):
         self.eval()
         self.zero_grad()
-        tX=torch.FloatTensor(x)
+        
+        tX=torch.tensor(x,dtype=torch.float,device=self.device)
+
         out=self.forward(tX)
-        return out.data.numpy()
+        return out.data.cpu().numpy()
 
 class QuantileNetwork():
     def __init__(self,quantiles,loss='quantile'):
         self.quantiles=quantiles
         self.lossfn=loss
+        if torch.cuda.is_available():
+            self.device=torch.device('cuda')
+        else:
+            self.device=torch.device('cpu')
 
     def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence):
-        self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices, quantiles=self.quantiles, batch_size=batch_size, sequence=sequence, n_epochs=nepochs)
+        self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
+                                                                  quantiles=self.quantiles, batch_size=batch_size, 
+                                                                  sequence=sequence, n_epochs=nepochs,
+                                                                  device=self.device)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -79,16 +89,8 @@ class QuantileNetwork():
         outrate = outcount/np.size(y_test_np)
         return outrate
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,loss='quantile',file_checkpoints=True):
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
 
-    # Check if CUDA (GPU support) is available
-    if torch.cuda.is_available():
-        # CUDA is available, so let's use the GPU
-        torch.set_default_device(0)
-        print("CUDA is available. Using GPU.")
-    else:
-        # CUDA is not available, so let's use the CPU
-        print("CUDA is not available. Using CPU.")
 
     X_mean=np.mean(X,axis=0,keepdims=True)
     X_std=np.std(X,axis=0,keepdims=True)
@@ -98,18 +100,19 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     n_out=len(quantiles)
     y_dim=len(y_mean[0])
 
-    tX = torch.FloatTensor(X)
-    tY = torch.FloatTensor(y)
+    tX = torch.tensor(X,dtype=torch.float,device=device)
+    tY = torch.tensor(y,dtype=torch.float,device=device)
+    tquantiles = torch.tensor(quantiles,dtype=torch.float,device=device)
 
     #Initiate loss tracking
-    train_losses=np.zeros(n_epochs)
-    val_losses=np.zeros(n_epochs)
+    train_losses=torch.zeros(n_epochs,device=device)
+    val_losses=torch.zeros(n_epochs,device=device)
     val_losses[0]=10000000 #For finding lowest new validation error later
 
-    model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std,seq=sequence)
+    model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std,seq=sequence,device=device)
 
     optimizer = optim.Adam(model.parameters()) #Set optimiser, atm Stochastic Gradient Descent
-    tquantiles = torch.FloatTensor(quantiles)
+    
     
     train_indices=np.sort(train_indices)
     val_indices=np.sort(validation_indices)
@@ -118,11 +121,13 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     # Univariate quantile loss
     def quantile_loss(yhat, idx):
         z = tY[idx,None] - yhat
-        return torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
+
+        torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
 
     # Marginal quantile loss for multivariate response
     def marginal_loss(yhat, idx):
         z = tY[idx,:,None] - yhat
+
         return torch.max(tquantiles[None,None]*z, (tquantiles[None,None] - 1)*z)
     
     if len(y.shape) == 1 or y.shape[1] == 1: #If Univariate
@@ -134,12 +139,15 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         print('Epoch {}'.format(epoch+1))
         sys.stdout.flush()
 
-        train_loss = torch.Tensor([0])
+
+        train_loss = torch.tensor([0],dtype=torch.float,device=device)
         
         for batch in tqdm(batches(train_indices, batch_size, shuffle=True),
                           total=int(np.ceil(len(train_indices)/batch_size)),
                           desc="Batch number"):
-            idx = torch.LongTensor(batch)
+            
+
+            idx = torch.tensor(batch,dtype=torch.int64,device=device)
 
             model.train() #Initialise train mode
             model.zero_grad() #Reset gradient
@@ -153,9 +161,13 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
             train_loss=train_loss+loss.data #Increment loss
 
-        validation_loss = torch.Tensor([0])
+
+        validation_loss = torch.tensor([0],dtype=torch.float,device=device)
+
         for batch_idx, batch in enumerate(batches(val_indices, batch_size, shuffle=False)):
-            idx = torch.LongTensor(batch)
+
+
+            idx = torch.tensor(batch,dtype=torch.int64,device=device)
 
             model.eval() #Set evaluation mode
             model.zero_grad() #Reset gradient
@@ -164,18 +176,18 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
             validation_loss=validation_loss+lossfn(yhat, idx).sum()
 
-        print('Training loss {}'.format(train_loss.data.numpy()/float(len(train_indices)))+
-              ' Validation loss {}'.format(validation_loss.data.numpy()/float(len(val_indices))),
+        print('Training loss {}'.format((train_loss.data/float(len(train_indices))).data.cpu().numpy())+
+              ' Validation loss {}'.format((validation_loss.data/float(len(val_indices))).data.cpu().numpy()),
               end=None)
         sys.stdout.flush()
 
-        train_loss = train_loss.data.numpy() / float(len(train_indices))
-        validation_loss = validation_loss.data.numpy() / float(len(val_indices))
+        train_loss = (train_loss.data/float(len(train_indices)))
+        validation_loss = (validation_loss.data/float(len(val_indices)))
 
-        if validation_loss[0]<np.min(val_losses[val_losses!=0.0]):
+        if validation_loss[0]<torch.min(val_losses[val_losses!=0.0]):
             if file_checkpoints:
                 torch.save(model,'tmp_file')            
-            print("----New best validation loss---- {}".format(validation_loss))
+            print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
 
         train_losses[epoch] = train_loss
         val_losses[epoch] = validation_loss
@@ -183,7 +195,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     if file_checkpoints:
         model=torch.load('tmp_file')
         os.remove('tmp_file')
-        print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses)+1))
+        print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses.data.cpu().numpy())+1))
 
     return model, train_losses, val_losses
 
