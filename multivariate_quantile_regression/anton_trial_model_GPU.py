@@ -89,16 +89,22 @@ class QuantileNetwork():
         
         return PSNR
     
-    def quant_rate(y_test_np,preds):
-        quantcount = np.zeros(np.shape(preds)[2])
-        for i in range(np.shape(preds)[0]):
-            for j in range(np.shape(preds)[1]):
-                for k in range(np.shape(preds)[2]):
-                    if y_test_np[i,j] < preds[i,j,k]:
+    def quant_rate(y_true,y_pred):
+        quantcount = np.zeros(np.shape(y_pred)[2])
+        for i in range(np.shape(y_pred)[0]):
+            for j in range(np.shape(y_pred)[1]):
+                for k in range(np.shape(y_pred)[2]):
+                    if y_true[i,j] < y_pred[i,j,k]:
                         quantcount[k] = quantcount[k] + 1 
 
-        quantrate = quantcount/np.size(y_test_np)
+        quantrate = quantcount/np.size(y_true)
         return quantrate
+    
+    # Marginal quantile loss for multivariate response
+    def mean_marginal_loss(y_true,y_pred,quantiles):
+        z = y_true[:,:,None] - y_pred
+        loss = np.sum(np.maximum(quantiles[None,None]*z, (quantiles[None,None] - 1)*z))
+        return loss/(np.shape(y_true)[0])
 
 def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
 
