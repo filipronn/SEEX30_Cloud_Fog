@@ -52,11 +52,13 @@ class QuantileNetworkMM(nn.Module):
         if self.data_norm:
             tX=torch.tensor((x - self.X_means) / self.X_stds,dtype=torch.float,device=self.device)
             norm_out = self.forward(tX)
-            out = norm_out * self.y_std[...,None] + self.y_mean[...,None]
+            out = norm_out.data.cpu() * self.y_std[...,None] + self.y_mean[...,None]
+            return out.numpy()
         else:
             tX=torch.tensor(x,dtype=torch.float,device=self.device)
             out=self.forward(tX)
-        return out.data.cpu().numpy()
+            return out.data.cpu().numpy()
+        
 
 class QuantileNetwork():
     def __init__(self,quantiles,loss='quantile'):
@@ -140,12 +142,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     except:
         y_dim=1
 
-    if data_norm:
-        tX = torch.tensor((X - X_mean) / X_std,dtype=torch.float,device=device)
-        tY = torch.tensor((y - y_mean) / y_std,dtype=torch.float,device=device)
-    else:
-        tX = torch.tensor(X,dtype=torch.float,device=device)
-        tY = torch.tensor(y,dtype=torch.float,device=device)
+
 
     tquantiles = torch.tensor(quantiles,dtype=torch.float,device=device)
 
@@ -180,9 +177,24 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     else:
         lossfn = marginal_loss
 
+    X=torch.tensor(X,dtype=torch.float,device=device)    
+
     for epoch in range(n_epochs):
         print('Epoch {}'.format(epoch+1))
         sys.stdout.flush()
+        
+        noise=torch.randn(X.shape,device=device)
+        means=torch.mean(X,dim=0)*0.03
+        noise=noise*means.repeat((len(noise[:,0]),1))
+        tX=X+noise
+        if data_norm:
+            X_mean=torch.mean(tX,dim=0)
+            X_std=torch.std(tX,dim=0)
+            tX = torch.tensor((tX - X_mean) / X_std,dtype=torch.float,device=device)
+            tY = torch.tensor((y - y_mean) / y_std,dtype=torch.float,device=device)
+        else:
+            tX = torch.tensor(tX,dtype=torch.float,device=device)
+            tY = torch.tensor(y,dtype=torch.float,device=device)
 
 
         train_loss = torch.tensor([0],dtype=torch.float,device=device)
