@@ -94,12 +94,25 @@ class QuantileNetwork():
         return outrate
     
     def quant_rate(y_true,y_pred):
-        quantcount = np.zeros(np.shape(y_pred)[2])
-        for i in range(np.shape(y_pred)[0]):
-            for j in range(np.shape(y_pred)[1]):
-                for k in range(np.shape(y_pred)[2]):
-                    if y_true[i,j] < y_pred[i,j,k]:
-                        quantcount[k] = quantcount[k] + 1 
+        try:
+            n_quants=np.shape(y_pred)[2]
+
+        except:
+            n_quants=np.shape(y_pred)[1]
+        
+        quantcount = np.zeros(n_quants)
+        if len(np.shape(y_pred))==3: #If multiple output features
+            for i in range(np.shape(y_pred)[0]):
+                for j in range(np.shape(y_pred)[1]):
+                    for k in range(n_quants):
+                        if y_true[i,j] < y_pred[i,j,k]:
+                            quantcount[k] = quantcount[k] + 1
+        else: #If 1 output feature
+            for i in range(np.shape(y_pred)[0]):
+                for k in range(n_quants):
+                    if y_true[i] < y_pred[i,k]:
+                        quantcount[k] = quantcount[k] + 1
+
 
         quantrate = quantcount/np.size(y_true)
         return quantrate
@@ -117,9 +130,15 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     X_std=np.std(X,axis=0,keepdims=True)
     y_mean=np.mean(y,axis=0,keepdims=True)
     y_std=np.std(y,axis=0,keepdims=True)
-    n_in=len(X_mean[0])
+    try: #Only 1 input feature, catch
+        n_in=len(X_mean[0])
+    except:
+        n_in=1
     n_out=len(quantiles)
-    y_dim=len(y_mean[0])
+    try:#Only 1 output feature, catch
+        y_dim=len(y_mean[0])
+    except:
+        y_dim=1
 
     if data_norm:
         tX = torch.tensor((X - X_mean) / X_std,dtype=torch.float,device=device)
@@ -148,7 +167,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     def quantile_loss(yhat, idx):
         z = tY[idx,None] - yhat
 
-        torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
+        return torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
 
     # Marginal quantile loss for multivariate response
     def marginal_loss(yhat, idx):
