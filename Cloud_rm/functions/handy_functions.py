@@ -72,7 +72,7 @@ def add_MSI_noise(df,x_labels):
 
     for i,label in enumerate(x_labels):
         col=df[label].to_numpy()
-        noise_std=np.mean(col)/SNR_from_channel_2[i]
+        noise_std=np.sqrt((np.mean(col**2))/SNR_from_channel_2[i])
         print("Noise standard deviation for "+str(label)+": "+str(noise_std))
         noise=np.random.normal(0,noise_std,size=len(col)) #Zero mean
         df[label]=col+noise
