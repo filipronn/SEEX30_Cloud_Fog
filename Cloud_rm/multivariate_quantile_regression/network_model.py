@@ -192,6 +192,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         ax.plot(train_losses[:epoch].cpu().numpy())
         ax.plot(val_losses[:epoch].cpu().numpy())
         ax.legend(['Training Loss','Validation Loss'])
+        ax.set_xlim((0,n_epochs))
         display(fig)
         clear_output(wait=True)
         
