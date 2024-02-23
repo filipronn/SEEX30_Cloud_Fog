@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from multivariate_quantile_regression.utils import batches
+from functions.handy_functions import add_noise
 #from utils import create_folds, batches
 #from torch_utils import clip_gradient, logsumexp
 
@@ -18,15 +19,11 @@ from tqdm import tqdm
 
 
 class QuantileNetworkMM(nn.Module):
-    def __init__(self,n_in,n_out,y_dim, X_means, X_stds, y_mean, y_std, seq, device, data_norm):
+    def __init__(self,n_out, y_mean, y_std, seq, device, data_norm):
         super(QuantileNetworkMM, self).__init__()
-        self.X_means = X_means
-        self.X_stds = X_stds
         self.y_mean = y_mean
         self.y_std = y_std
-        self.n_in=n_in
         self.n_out=n_out
-        self.y_dim=y_dim
         self.linear=seq
         self.device=device
         self.data_norm=data_norm
@@ -49,12 +46,14 @@ class QuantileNetworkMM(nn.Module):
     def predict(self,x):
         self.eval()
         self.zero_grad()
+        tX=torch.tensor(x,dtype=torch.float,device=self.device)
         if self.data_norm:
-            tX=torch.tensor((x - self.X_means) / self.X_stds,dtype=torch.float,device=self.device)
+            tX_mean = torch.mean(tX,0)
+            tX_std = torch.std(tX,0)
+            tX = (tX-tX_mean)/tX_std
             norm_out = self.forward(tX)
             out = norm_out * self.y_std[...,None] + self.y_mean[...,None]
         else:
-            tX=torch.tensor(x,dtype=torch.float,device=self.device)
             out=self.forward(tX)
         return out.data.cpu().numpy()
 
@@ -67,11 +66,11 @@ class QuantileNetwork():
         else:
             self.device=torch.device('cpu')
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False):
+    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False,noise_ratio=0.03):
         self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
                                                                   quantiles=self.quantiles, batch_size=batch_size, 
                                                                   sequence=sequence, n_epochs=nepochs,
-                                                                  device=self.device,lr=lr,data_norm=data_norm)
+                                                                  device=self.device,lr=lr,data_norm=data_norm,noise_ratio=noise_ratio)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -83,25 +82,25 @@ class QuantileNetwork():
         
         return PSNR
     
-    def calc_outrate(y_test_np,preds):
-        outcount = 0
-        for i in range(np.shape(y_test_np)[0]):
-            for j in range(np.shape(y_test_np)[1]):
-                if y_test_np[i,j] < preds[i,j,0] or y_test_np[i,j] > preds[i,j,2]:
-                    outcount = outcount +1
-
-        outrate = outcount/np.size(y_test_np)
-        return outrate
-    
     def quant_rate(y_true,y_pred):
-        quantcount = np.zeros(np.shape(y_pred)[2])
-        for i in range(np.shape(y_pred)[0]):
-            for j in range(np.shape(y_pred)[1]):
-                for k in range(np.shape(y_pred)[2]):
-                    if y_true[i,j] < y_pred[i,j,k]:
-                        quantcount[k] = quantcount[k] + 1 
+        if len(np.shape(y_pred)) == 3:
+            quantcount = np.zeros(np.shape(y_pred)[2])
+            for i in range(np.shape(y_pred)[0]):
+                for j in range(np.shape(y_pred)[1]):
+                    for k in range(np.shape(y_pred)[2]):
+                        if y_true[i,j] < y_pred[i,j,k]:
+                            quantcount[k] = quantcount[k] + 1 
 
-        quantrate = quantcount/np.size(y_true)
+            quantrate = quantcount/np.size(y_true)
+        else:
+            quantcount = np.zeros(np.shape(y_pred)[1])
+            for i in range(np.shape(y_pred)[0]):
+                for j in range(np.shape(y_pred)[1]):
+                    if y_true[i] < y_pred[i,j]:
+                        quantcount[j] = quantcount[j] + 1 
+
+            quantrate = quantcount/np.size(y_true)
+
         return quantrate
     
     # Mean marginal quantile loss for multivariate response (sum over dimensions, mean over data-points)
@@ -110,23 +109,18 @@ class QuantileNetwork():
         loss = np.sum(np.maximum(quantiles[None,None]*z, (quantiles[None,None] - 1)*z))
         return loss/(np.shape(y_true)[0])
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
-
-
-    X_mean=np.mean(X,axis=0,keepdims=True)
-    X_std=np.std(X,axis=0,keepdims=True)
-    y_mean=np.mean(y,axis=0,keepdims=True)
-    y_std=np.std(y,axis=0,keepdims=True)
-    n_in=len(X_mean[0])
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,noise_ratio,loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
     n_out=len(quantiles)
-    y_dim=len(y_mean[0])
+    y_mean=y.mean(axis=0, keepdims=True)
+    y_std=y.std(axis=0, keepdims=True)
+
+    tX = torch.tensor(X,dtype=torch.float,device=device)
+    tY = torch.tensor(y,dtype=torch.float,device=device)
 
     if data_norm:
-        tX = torch.tensor((X - X_mean) / X_std,dtype=torch.float,device=device)
-        tY = torch.tensor((y - y_mean) / y_std,dtype=torch.float,device=device)
-    else:
-        tX = torch.tensor(X,dtype=torch.float,device=device)
-        tY = torch.tensor(y,dtype=torch.float,device=device)
+            tY_mean = torch.tensor(y_mean,dtype=torch.float,device=device)
+            tY_std = torch.tensor(y_std,dtype=torch.float,device=device)
+            tY = (tY-tY_mean)/tY_std
 
     tquantiles = torch.tensor(quantiles,dtype=torch.float,device=device)
 
@@ -135,7 +129,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     val_losses=torch.zeros(n_epochs,device=device)
     val_losses[0]=10000000 #For finding lowest new validation error later
 
-    model=QuantileNetworkMM(n_in,n_out,y_dim,X_mean,X_std,y_mean,y_std,seq=sequence,device=device,data_norm=data_norm)
+    model=QuantileNetworkMM(n_out,y_mean,y_std,seq=sequence,device=device,data_norm=data_norm)
 
     optimizer = optim.Adam(model.parameters(),lr=lr) #Set optimiser, atm Stochastic Gradient Descent
     
@@ -148,7 +142,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     def quantile_loss(yhat, idx):
         z = tY[idx,None] - yhat
 
-        torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
+        return torch.max(tquantiles[None]*z, (tquantiles[None] - 1)*z)
 
     # Marginal quantile loss for multivariate response
     def marginal_loss(yhat, idx):
@@ -165,6 +159,14 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         print('Epoch {}'.format(epoch+1))
         sys.stdout.flush()
 
+        #Add noise to X
+        tX_noisy = tX + torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
+
+        #Then normalize X if necessary
+        if data_norm:
+            tX_n_mean = torch.mean(tX_noisy,0)
+            tX_n_std = torch.std(tX_noisy,0)
+            tX = (tX-tX_n_mean)/tX_n_std
 
         train_loss = torch.tensor([0],dtype=torch.float,device=device)
         
@@ -178,7 +180,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
             model.train() #Initialise train mode
             model.zero_grad() #Reset gradient
 
-            yhat = model(tX[idx]) #Run algorithm
+            yhat = model(tX_noisy[idx]) #Run algorithm
 
             loss=lossfn(yhat,idx).sum() #Run loss function
             loss.backward() #Calculate gradient
@@ -190,7 +192,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
         validation_loss = torch.tensor([0],dtype=torch.float,device=device)
 
-        for batch_idx, batch in enumerate(batches(val_indices, batch_size, shuffle=False)):
+        for batch in batches(val_indices, batch_size, shuffle=False):
 
 
             idx = torch.tensor(batch,dtype=torch.int64,device=device)
