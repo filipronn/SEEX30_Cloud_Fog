@@ -29,8 +29,8 @@ def save_model_and_test_data(filepath,model,X_test,y_test,pytorch=True,save_hist
     else:
         model.save(filepath=filepath)
 
-    X_test.to_csv(filepath+'/xtest.csv',index=False)
-    y_test.to_csv(filepath+'/ytest.csv',index=False)
+    X_test.to_csv(filepath+'/xtest.csv',index=True)
+    y_test.to_csv(filepath+'/ytest.csv',index=True)
 
     if save_history:
         history_df.to_csv(filepath+'/history.csv',index=False)
@@ -40,8 +40,8 @@ def load_model_and_test_data(filepath,pytorch=True,load_history=False):
         model=torch.load(filepath+'/model_file')
     else:
         model=tf.keras.models.load_model(filepath)
-    X_test=pd.read_csv(filepath+'/xtest.csv')
-    y_test=pd.read_csv(filepath+'/ytest.csv')
+    X_test=pd.read_csv(filepath+'/xtest.csv',index_col=0)
+    y_test=pd.read_csv(filepath+'/ytest.csv',index_col=0)
     
     if load_history:
         history_df=pd.read_csv(filepath+'/history.csv')
