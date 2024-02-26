@@ -66,11 +66,12 @@ class QuantileNetwork():
         else:
             self.device=torch.device('cpu')
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False,noise_ratio=0.03):
+    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False,noise_ratio=0.03,decay=False,decay_gamma=0.5,decay_wait=5):
         self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
                                                                   quantiles=self.quantiles, batch_size=batch_size, 
                                                                   sequence=sequence, n_epochs=nepochs,
-                                                                  device=self.device,lr=lr,data_norm=data_norm,noise_ratio=noise_ratio)
+                                                                  device=self.device,lr=lr,data_norm=data_norm,noise_ratio=noise_ratio,
+                                                                  decay=decay,decay_gamma=decay_gamma,decay_wait=decay_wait)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -109,7 +110,8 @@ class QuantileNetwork():
         loss = np.sum(np.maximum(quantiles[None,None]*z, (quantiles[None,None] - 1)*z))
         return loss/(np.shape(y_true)[0])
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,noise_ratio,loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,noise_ratio,
+                  decay,decay_gamma,decay_wait,loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
     n_out=len(quantiles)
     y_mean=y.mean(axis=0, keepdims=True)
     y_std=y.std(axis=0, keepdims=True)
@@ -131,7 +133,10 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
     model=QuantileNetworkMM(n_out,y_mean,y_std,seq=sequence,device=device,data_norm=data_norm)
 
-    optimizer = optim.Adam(model.parameters(),lr=lr) #Set optimiser, atm Stochastic Gradient Descent
+    optimizer = optim.Adam(model.parameters(),lr=lr) #Set optimiser
+    if decay:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=decay_gamma)
+        no_improv_ctr = 0
     
     
     train_indices=np.sort(train_indices)
@@ -162,11 +167,14 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         #Add noise to X
         tX_noisy = tX + torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
 
-        #Then normalize X if necessary
+        #Then normalize X if wanted
         if data_norm:
             tX_n_mean = torch.mean(tX_noisy,0)
             tX_n_std = torch.std(tX_noisy,0)
-            tX = (tX-tX_n_mean)/tX_n_std
+            tX_noisy = (tX_noisy-tX_n_mean)/tX_n_std
+            tX_mean = torch.mean(tX,0)
+            tX_std = torch.std(tX,0)
+            tX = (tX-tX_mean)/tX_std 
 
         train_loss = torch.tensor([0],dtype=torch.float,device=device)
         
@@ -212,10 +220,21 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         train_loss = (train_loss.data/float(len(train_indices)))
         validation_loss = (validation_loss.data/float(len(val_indices)))
 
+        #Save model if new best val loss, else (if no improv=wait) lower lr, else inc. no improv
         if validation_loss[0]<torch.min(val_losses[val_losses!=0.0]):
             if file_checkpoints:
                 torch.save(model,'tmp_file')            
             print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
+            if decay:
+                no_improv_ctr = 0
+        elif decay:
+            no_improv_ctr = no_improv_ctr + 1
+            if no_improv_ctr % decay_wait == 0:
+                scheduler.step()
+                print("----No improvement, learning rate dropped---- ")
+                if no_improv_ctr == 10*decay_wait:
+                    print("---No improvement for too long, training ended early---")
+                    break
 
         train_losses[epoch] = train_loss
         val_losses[epoch] = validation_loss
@@ -223,6 +242,6 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     if file_checkpoints:
         model=torch.load('tmp_file')
         os.remove('tmp_file')
-        print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses.data.cpu().numpy())+1))
+        print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses[val_losses!=0.0].data.cpu().numpy())+1))
 
     return model, train_losses, val_losses
