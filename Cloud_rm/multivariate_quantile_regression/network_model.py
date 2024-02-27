@@ -302,17 +302,20 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         #Check for learning rate decay
         if validation_loss[0]<torch.min(val_losses[val_losses!=0.0]):
             if file_checkpoints:
-                torch.save(model,'tmp_file')            
-            print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
+                torch.save(model,'tmp_file')
+            if verbose:                
+                print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
             if decay:
                 no_improv_ctr = 0
         elif decay:
             no_improv_ctr = no_improv_ctr + 1
             if no_improv_ctr % decay_wait == 0:
                 scheduler.step()
-                print("----No improvement, learning rate dropped---- ")
+                if verbose:
+                    print("----No improvement, learning rate dropped---- ")
                 if no_improv_ctr == 10*decay_wait:
-                    print("---No improvement for too long, training ended early---")
+                    if verbose:
+                        print("---No improvement for too long, training ended early---")
                     break
 
         if plot_training:
