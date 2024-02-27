@@ -74,13 +74,14 @@ class QuantileNetwork():
         else:
             self.device=torch.device('cpu')
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False,verbose=True,plot_training=False):
+    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False,decay=False,decay_gamma=0.5,decay_wait=5,verbose=True,plot_training=False):
         self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
                                                                   quantiles=self.quantiles, batch_size=batch_size, 
                                                                   sequence=sequence, n_epochs=nepochs,
                                                                   device=self.device,lr=lr,data_norm=data_norm,
                                                                   verbose=verbose,
-                                                                  plot_training=plot_training)
+                                                                  plot_training=plot_training,
+                                                                  decay=decay,decay_gamma=decay_gamma,decay_wait=decay_wait)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -134,7 +135,8 @@ class QuantileNetwork():
     
 
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,loss='quantile',file_checkpoints=True,device=torch.device('cuda'),verbose=True,plot_training=False):
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,
+                  decay,decay_gamma,decay_wait,file_checkpoints=True,device=torch.device('cuda'),verbose=True,plot_training=False):
 
 
     X_mean=np.mean(X,axis=0,keepdims=True)
@@ -169,6 +171,9 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
     optimizer = optim.Adam(model.parameters(),lr=lr) #Set optimiser, atm Stochastic Gradient Descent
     
+    if decay:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=decay_gamma)
+        no_improv_ctr = 0
     
     train_indices=np.sort(train_indices)
     val_indices=np.sort(validation_indices)
@@ -293,6 +298,22 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
         train_losses[epoch] = train_loss
         val_losses[epoch] = validation_loss
+
+        #Check for learning rate decay
+        if validation_loss[0]<torch.min(val_losses[val_losses!=0.0]):
+            if file_checkpoints:
+                torch.save(model,'tmp_file')            
+            print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
+            if decay:
+                no_improv_ctr = 0
+        elif decay:
+            no_improv_ctr = no_improv_ctr + 1
+            if no_improv_ctr % decay_wait == 0:
+                scheduler.step()
+                print("----No improvement, learning rate dropped---- ")
+                if no_improv_ctr == 10*decay_wait:
+                    print("---No improvement for too long, training ended early---")
+                    break
 
         if plot_training:
             plot_loss()
