@@ -17,6 +17,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 from tqdm import tqdm
 
+from IPython.display import clear_output
+
 
 class QuantileNetworkMM(nn.Module):
     def __init__(self,n_out, y_mean, y_std, seq, device):
@@ -62,11 +64,12 @@ class QuantileNetwork():
         else:
             self.device=torch.device('cpu')
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,noise_ratio=0.03):
+    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,noise_ratio=0.03,early_break=False):
         self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
                                                                   quantiles=self.quantiles, batch_size=batch_size, 
                                                                   sequence=sequence, n_epochs=nepochs,
-                                                                  device=self.device,lr=lr,noise_ratio=noise_ratio)
+                                                                  device=self.device,lr=lr,noise_ratio=noise_ratio,
+                                                                  early_break=early_break)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -99,13 +102,33 @@ class QuantileNetwork():
 
         return quantrate
     
+    def quant_cross(y_pred):
+        if len(np.shape(y_pred)) == 3:
+            crosscount = 0
+            for i in range(np.shape(y_pred)[0]):
+                for j in range(np.shape(y_pred)[1]):
+                    for k in range(np.shape(y_pred)[2]-1):
+                        if y_pred[i,j,k+1] < y_pred[i,j,k]:
+                            crosscount = crosscount + 1 
+
+        else:
+            crosscount = 0
+            for i in range(np.shape(y_pred)[0]):
+                for j in range(np.shape(y_pred)[1]-1):
+                    if y_pred[i,j+1] < y_pred[i,j]:
+                        crosscount = crosscount + 1 
+
+        crossrate = crosscount/(np.size(y_pred)-np.size(y_pred[...,0]))
+
+        return crossrate
+    
     # Mean marginal quantile loss for multivariate response (sum over dimensions, mean over data-points)
     def mean_marginal_loss(y_true,y_pred,quantiles):
         z = y_true[:,:,None] - y_pred
         loss = np.sum(np.maximum(quantiles[None,None]*z, (quantiles[None,None] - 1)*z))
         return loss/(np.shape(y_true)[0])
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,noise_ratio,
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,noise_ratio, early_break,
                   loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
     #Find variables for use in QuantileNetworkMM
     n_out=len(quantiles)
@@ -132,6 +155,9 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     model=QuantileNetworkMM(n_out,y_mean,y_std,seq=sequence,device=device)
 
     optimizer = optim.Adam(model.parameters(),lr=lr) #Set optimiser
+
+    if early_break:
+        no_improv_ctr = 0
     
     train_indices=np.sort(train_indices)
     val_indices=np.sort(validation_indices)
@@ -155,8 +181,13 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         lossfn = marginal_loss
 
     for epoch in range(n_epochs):
+        
+        if epoch % 10 == 0:
+            clear_output(wait=True)
+            
         print('Epoch {}'.format(epoch+1))
         sys.stdout.flush()
+
 
         #Add noise to tX
         tX_noisy = tX + torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
@@ -215,6 +246,13 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
             if file_checkpoints:
                 torch.save(model,'tmp_file')            
             print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
+            if early_break:
+                no_improv_ctr = 0
+        elif early_break:
+            no_improv_ctr += 1
+            if no_improv_ctr == 100:
+                print("---No improvement in 100 epochs, broke early---")
+                break
 
         train_losses[epoch] = train_loss
         val_losses[epoch] = validation_loss
@@ -223,5 +261,6 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         model=torch.load('tmp_file')
         os.remove('tmp_file')
         print("Best model out of total max epochs found at epoch {}".format(np.argmin(val_losses[val_losses!=0.0].data.cpu().numpy())+1))
+        print("With validation loss: {}".format(np.min(val_losses[val_losses!=0.0].data.cpu().numpy())))
 
     return model, train_losses, val_losses
