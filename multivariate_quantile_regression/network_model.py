@@ -142,10 +142,6 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     tY_mean = torch.tensor(y_mean,dtype=torch.float,device=device)
     tY_std = torch.tensor(y_std,dtype=torch.float,device=device)
     tY = (tY-tY_mean)/tY_std
-    #Normalize X into separate tensor for epoch-wise noise addition
-    tX_mean = torch.mean(tX,0)
-    tX_std = torch.std(tX,0)
-    tX_norm = (tX-tX_mean)/tX_std 
     
     #Initiate loss tracking
     train_losses=torch.zeros(n_epochs,device=device)
@@ -158,6 +154,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
     if early_break:
         no_improv_ctr = 0
+        eps=1e-8
     
     train_indices=np.sort(train_indices)
     val_indices=np.sort(validation_indices)
@@ -229,7 +226,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
             model.eval() #Set evaluation mode
             model.zero_grad() #Reset gradient
 
-            yhat=model(tX_norm[idx])
+            yhat=model(tX_noisy[idx])
 
             validation_loss=validation_loss+lossfn(yhat, idx).sum()
 
@@ -246,7 +243,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
             if file_checkpoints:
                 torch.save(model,'tmp_file')            
             print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
-            if early_break:
+            if early_break and torch.min(val_losses[val_losses!=0.0])-validation_loss[0] > eps:
                 no_improv_ctr = 0
         elif early_break:
             no_improv_ctr += 1
