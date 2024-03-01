@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-
+from functions import calc_metrics
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score
 
 
 def plot_metrics(models,X_tests,y_tests,predictions,df,index_y=10,samples=100):
@@ -188,7 +190,15 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,index_y=10,samples=100):
     MSE=[]
     R2=[]
     PSNR=[]
+    quantrates=[]
+    quantcross=[]
+    for i, model in enumerate(models):
+        MSE.append(mean_squared_error(y_true[i],y_pred[i][:,1]))
+        R2.append(r2_score(y_true[i],y_pred[i][:,1]))
+        PSNR.append(calc_metrics.PSNR(y_true[i],y_pred[i][:,1]))
+        quantrates.append(calc_metrics.quant_rate(y_true[i],y_pred[i]))
+        quantcross.append(calc_metrics.quant_cross(y_pred[i]))
 
 
 
-    return figs, axs
+    return figs, axs, MSE, R2, PSNR, quantrates, quantcross
