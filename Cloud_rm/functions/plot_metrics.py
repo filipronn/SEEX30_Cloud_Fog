@@ -29,7 +29,7 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
         df_tmp=df_tmp.reset_index()
         df_tmp=df_tmp.drop(columns=["index"])
 
-        indices_thin.append(df_tmp[df_tmp['COT']<=cot_thin].index)
+        indices_thin.append(df_tmp[(df_tmp['COT']<=cot_thin)&df_tmp['COT']>0].index)
         indices_med.append(df_tmp[(df_tmp['COT']>cot_thin)&(df_tmp['COT']<=cot_med)].index)
         indices_thick.append(df_tmp[df_tmp['COT']>cot_med].index)
 
@@ -79,7 +79,7 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
         ax.plot(y_true[i][indices_thick[i]],residuals[i][indices_thick[i]],'.', markersize=2)
         ax.set_title("Model "+str(i))
         ax.hlines(0,xmin=-1,xmax=10,colors='r')
-        ax.set_xlim((np.min(y_true[i])-0.2,np.max(y_true[i])+0.2))
+        ax.set_xlim((np.min(y_true[i])-0.2,1.2))
         ax.legend(['Residual thin COT <3.6',
                         'Residual med COT <23',
                         'Residual thick COT <50',
@@ -102,6 +102,8 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
         #plt.plot(cloudy_sort,'.')
         line=np.linspace(0,1,100)
         ax.plot(line,line)
+        ax.set_xlim((np.min(y_pred[i])-0.2,1.2))
+        ax.set_ylim((np.min(y_true[i])-0.2,1.2))
         ax.legend(['Predictions thin COT <3.6',
                         'Predictions med COT <23',
                         'Predictions thick COT <50',
@@ -120,19 +122,51 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
     for i,ax in enumerate(ax_4.ravel()):
         freq_true=np.zeros(len(bins))
         freq_pred=np.zeros(len(bins))
+
+        freq_true_thin=np.zeros(len(bins))
+        freq_pred_thin=np.zeros(len(bins))
+
+        freq_true_med=np.zeros(len(bins))
+        freq_pred_med=np.zeros(len(bins))
+
+        y_tmp_thin=y_true[i][indices_thin[i]]
+        y_tmp_med=y_true[i][indices_med[i]]
+
+        y_tmp_pred_thin=y_pred[i][indices_thin[i]]
+        y_tmp_pred_med=y_pred[i][indices_med[i]]
+
         for j,edge in enumerate(bins):
             if j!=0:
                 indices=(y_true[i]>bins[j-1])&(y_true[i]<=edge)
+
+                ind_t=(y_tmp_thin>bins[j-1])&(y_tmp_thin<=edge)
+                ind_m=(y_tmp_med>bins[j-1])&(y_tmp_med<=edge)
+
                 mean_bin_true=np.mean(y_true[i][indices])
                 mean_bin_pred=np.mean(y_pred[i][indices])
+
+                mean_bin_true_thin=np.mean(y_tmp_thin[ind_t])
+                mean_bin_pred_thin=np.mean(y_tmp_pred_thin[ind_t])
+
+                mean_bin_true_med=np.mean(y_tmp_med[ind_m])
+                mean_bin_pred_med=np.mean(y_tmp_pred_med[ind_m])
                 
                 freq_true[j]=mean_bin_true
                 freq_pred[j]=mean_bin_pred
+
+                freq_true_thin[j]=mean_bin_true_thin
+                freq_pred_thin[j]=mean_bin_pred_thin
+
+                freq_true_med[j]=mean_bin_true_med
+                freq_pred_med[j]=mean_bin_pred_med
+
         ax.plot(freq_pred,freq_true,'.')
+        ax.plot(freq_pred_thin,freq_true_thin,'.')
+        ax.plot(freq_pred_med,freq_true_med,'.')
         #plt.plot(cloudy_sort,'.')
         line=np.linspace(0,1,100)
         ax.plot(line,line)
-        ax.legend(['Predictions'])
+        ax.legend(['All predictions','Thin predictions','Medium predictions'])
         ax.set_xlabel("Prediction")
         ax.set_ylabel("Ground Truth")
 
@@ -173,6 +207,7 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
         ax.plot(y_true_sort_samp[i]+y_true_sort_samp[i]*percent,'g',label='percent')
         ax.set_xlabel("Arbitrary samples")
         ax.set_ylabel("Reflectivity")
+        ax.set_ylim((0,1.2))
         ax.legend()
 
     figs.append(fig_5)
