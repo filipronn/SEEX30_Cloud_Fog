@@ -124,8 +124,13 @@ class QuantileNetwork():
     
     # Mean marginal quantile loss for multivariate response (sum over dimensions, mean over data-points)
     def mean_marginal_loss(y_true,y_pred,quantiles):
-        z = y_true[:,:,None] - y_pred
-        loss = np.sum(np.maximum(quantiles[None,None]*z, (quantiles[None,None] - 1)*z))
+        if len(np.shape(y_pred)) == 3:
+            z = y_true[:,:,None] - y_pred
+            loss = np.sum(np.maximum(quantiles[None,None]*z, (quantiles[None,None] - 1)*z))
+        else:
+            z = y_true[:,None] - y_pred
+            loss = np.sum(np.maximum(quantiles[None]*z, (quantiles[None] - 1)*z))
+
         return loss/(np.shape(y_true)[0])
 
 def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,noise_ratio, early_break,
