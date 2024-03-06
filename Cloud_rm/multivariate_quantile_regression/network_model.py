@@ -78,13 +78,14 @@ class QuantileNetwork():
         else:
             self.device=torch.device('cpu')
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False,verbose=True,plot_training=False):
+    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,data_norm=False,verbose=True,plot_training=False,early_break=False):
         self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
                                                                   quantiles=self.quantiles, batch_size=batch_size, 
                                                                   sequence=sequence, n_epochs=nepochs,
                                                                   device=self.device,lr=lr,data_norm=data_norm,
                                                                   verbose=verbose,
-                                                                  plot_training=plot_training)
+                                                                  plot_training=plot_training,
+                                                                  early_break=early_break)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -158,7 +159,7 @@ class QuantileNetwork():
     
 
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,data_norm,early_break,
                   file_checkpoints=True,device=torch.device('cuda'),verbose=True,plot_training=False):
 
 
@@ -194,6 +195,9 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
     optimizer = optim.Adam(model.parameters(),lr=lr) #Set optimiser, atm Stochastic Gradient Descent
     
+    if early_break:
+        no_improv_ctr = 0
+        eps=1e-8
 
     train_indices=np.sort(train_indices)
     val_indices=np.sort(validation_indices)
@@ -315,6 +319,15 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
                 torch.save(model,'tmp_file')
             if verbose:
                 print("----New best validation loss---- {}".format(validation_loss.data.cpu().numpy()))
+
+            if early_break and torch.min(val_losses[val_losses!=0.0])-validation_loss[0] > eps:
+                no_improv_ctr = 0
+
+        elif early_break:
+            no_improv_ctr += 1
+            if no_improv_ctr == 100:
+                print("---No improvement in 100 epochs, broke early---")
+                break
 
         train_losses[epoch] = train_loss
         val_losses[epoch] = validation_loss

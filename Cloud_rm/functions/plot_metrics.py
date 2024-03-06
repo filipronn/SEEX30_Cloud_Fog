@@ -6,7 +6,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 
 
-def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,samples=100):
+def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,samples=100,is_ensemble=True):
     # models - array of models to plot from
     # X_test - array of test data for X
     # y_tests - array of test data fro y
@@ -37,20 +37,20 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
     figs=[]
     axs=[]
 
+    if is_ensemble==False:
+        fig_1, ax_1=plt.subplots(nrows=nrows,ncols=ncols)
+        fig_1.suptitle("Training/Validation loss")
 
-    fig_1, ax_1=plt.subplots(nrows=nrows,ncols=ncols)
-    fig_1.suptitle("Training/Validation loss")
+        for i,ax in enumerate(ax_1.ravel()):
+            ax.plot(models[i].train_loss.data.cpu().numpy())
+            ax.plot(models[i].val_loss.data.cpu().numpy())
+            ax.set_title("All channels estimated")
+            ax.legend(['Training Loss','Validation Loss'])
+            ax.set_xlabel("Epochs")
+            ax.set_ylabel("Loss")
 
-    for i,ax in enumerate(ax_1.ravel()):
-        ax.plot(models[i].train_loss.data.cpu().numpy())
-        ax.plot(models[i].val_loss.data.cpu().numpy())
-        ax.set_title("All channels estimated")
-        ax.legend(['Training Loss','Validation Loss'])
-        ax.set_xlabel("Epochs")
-        ax.set_ylabel("Loss")
-
-    figs.append(fig_1)
-    axs.append(ax_1)
+        figs.append(fig_1)
+        axs.append(ax_1)
 
     ## Calculate residuals ##
     residuals=[]
