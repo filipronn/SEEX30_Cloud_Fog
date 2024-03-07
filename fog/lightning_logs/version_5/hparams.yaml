@@ -1,0 +1,124 @@
+target:
+- visibility
+continuous_cols:
+- band20
+- band21
+- band22
+- band23
+- band24
+- band25
+- band27
+- band28
+- band29
+- band30
+- band31
+- band32
+- band33
+- band11
+- band12
+- band13
+- band14
+- band15
+- band16
+- band17
+- band18
+- band19
+- band26
+- sat_angle
+- sun_angle
+- azimuth_angle
+categorical_cols: []
+date_columns: []
+encode_date_columns: true
+validation_split: 0.2
+continuous_feature_transform: null
+normalize_continuous_features: true
+quantile_noise: 0
+num_workers: 0
+pin_memory: true
+handle_unknown_categories: true
+handle_missing_values: true
+task: regression
+head: LinearHead
+head_config:
+  layers: ''
+  activation: ReLU
+  dropout: 0.1
+  use_batch_norm: false
+  initialization: kaiming
+embedding_dims: []
+embedding_dropout: 0.0
+batch_norm_continuous_input: true
+learning_rate: 0.001
+loss: MSELoss
+metrics:
+- mean_squared_error
+metrics_prob_input:
+- false
+metrics_params:
+- {}
+target_range: null
+virtual_batch_size: null
+seed: 42
+_module_src: models.gate
+_model_name: GatedAdditiveTreeEnsembleModel
+_backbone_name: GatedAdditiveTreesBackbone
+_config_name: GatedAdditiveTreeEnsembleConfig
+gflu_stages: 4
+gflu_dropout: 0.0
+tree_depth: 5
+num_trees: 30
+binning_activation: sparsemoid
+feature_mask_function: t-softmax
+gflu_feature_init_sparsity: 0.3
+tree_feature_init_sparsity: 0.8
+learnable_sparsity: true
+tree_dropout: 0.0
+chain_trees: false
+tree_wise_attention: true
+tree_wise_attention_dropout: 0.0
+share_head_weights: true
+batch_size: 256
+data_aware_init_batch_size: 2000
+fast_dev_run: false
+max_epochs: 30
+min_epochs: 1
+max_time: null
+accelerator: auto
+devices: -1
+devices_list: null
+accumulate_grad_batches: 1
+auto_lr_find: false
+auto_select_gpus: true
+check_val_every_n_epoch: 1
+gradient_clip_val: 0.0
+overfit_batches: 0.0
+deterministic: false
+profiler: null
+early_stopping: valid_loss
+early_stopping_min_delta: 0.001
+early_stopping_mode: min
+early_stopping_patience: 5
+early_stopping_kwargs: {}
+checkpoints: valid_loss
+checkpoints_path: saved_models
+checkpoints_every_n_epochs: 1
+checkpoints_name: null
+checkpoints_mode: min
+checkpoints_save_top_k: 1
+checkpoints_kwargs: {}
+load_best: true
+track_grad_norm: -1
+progress_bar: rich
+precision: 32
+trainer_kwargs: {}
+optimizer: Adam
+optimizer_params: {}
+lr_scheduler: null
+lr_scheduler_params: {}
+lr_scheduler_monitor_metric: valid_loss
+categorical_dim: 0
+continuous_dim: 26
+output_dim: 1
+categorical_cardinality: []
+embedded_cat_dim: 0
