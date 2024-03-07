@@ -53,8 +53,8 @@ class QuantileNetworkMM(nn.Module):
         tX = (tX-tX_mean)/tX_std
         norm_out = self.forward(tX)
         out = norm_out.data.cpu() * self.y_std[...,None] + self.y_mean[...,None]
-        #return out.data.cpu().numpy()
-        return norm_out.data.cpu().numpy()
+        return out.data.cpu().numpy()
+        #return norm_out.data.cpu().numpy()
 
 class QuantileNetwork():
     def __init__(self,quantiles,loss='quantile'):
@@ -147,7 +147,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     #Normalize y
     tY_mean = torch.tensor(y_mean,dtype=torch.float,device=device)
     tY_std = torch.tensor(y_std,dtype=torch.float,device=device)
-    #tY = (tY-tY_mean)/tY_std
+    tY = (tY-tY_mean)/tY_std
     
     #Initiate loss tracking
     train_losses=torch.zeros(n_epochs,device=device)
