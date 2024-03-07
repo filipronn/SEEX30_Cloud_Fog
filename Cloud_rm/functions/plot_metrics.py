@@ -73,20 +73,22 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
     fig_2,ax_2=plt.subplots(nrows=nrows,ncols=ncols)
     fig_2.suptitle("Residual plots.")
 
-    for i,ax in enumerate(ax_2.ravel()):
-        ax.plot(y_true[i][indices_thin[i]],residuals[i][indices_thin[i]],'.', markersize=2)
-        ax.plot(y_true[i][indices_med[i]],residuals[i][indices_med[i]],'.', markersize=2)
-        ax.plot(y_true[i][indices_thick[i]],residuals[i][indices_thick[i]],'.', markersize=2)
-        ax.set_title("Model "+str(i))
-        ax.hlines(0,xmin=-1,xmax=10,colors='r')
-        ax.set_xlim((np.min(y_true[i])-0.2,1.2))
-        ax.legend(['Residual thin COT <3.6',
-                        'Residual med COT <23',
-                        'Residual thick COT <50',
-                        'Zero error line'])
-        ax.set_xlabel("Ground Truth")
-        ax.set_ylabel("Residual")
-
+    try:
+        for i,ax in enumerate(ax_2.ravel()):
+            ax.plot(y_true[i][indices_thin[i]],residuals[i][indices_thin[i]],'.', markersize=2)
+            ax.plot(y_true[i][indices_med[i]],residuals[i][indices_med[i]],'.', markersize=2)
+            ax.plot(y_true[i][indices_thick[i]],residuals[i][indices_thick[i]],'.', markersize=2)
+            ax.set_title("Model "+str(i))
+            ax.hlines(0,xmin=-1,xmax=10,colors='r')
+            ax.set_xlim((np.min(y_true[i])-0.2,1.2))
+            ax.legend(['Residual thin COT <3.6',
+                            'Residual med COT <23',
+                            'Residual thick COT <50',
+                            'Zero error line'])
+            ax.set_xlabel("Ground Truth")
+            ax.set_ylabel("Residual")
+    except:
+        pass
 
     figs.append(fig_2)
     axs.append(ax_2)
@@ -94,23 +96,25 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
     ## Plot prediction v ground truth ##
     fig_3,ax_3=plt.subplots(nrows=nrows,ncols=ncols)
     fig_3.suptitle("Prediction vs Ground Truth")
-    for i,ax in enumerate(ax_3.ravel()):
-        
-        ax.plot(y_pred[i][indices_thin[i],1],y_true[i][indices_thin[i]],'.', markersize=1)
-        ax.plot(y_pred[i][indices_med[i],1],y_true[i][indices_med[i]],'.', markersize=1)
-        ax.plot(y_pred[i][indices_thick[i],1],y_true[i][indices_thick[i]],'.', markersize=1)
-        #plt.plot(cloudy_sort,'.')
-        line=np.linspace(0,1,100)
-        ax.plot(line,line)
-        ax.set_xlim((np.min(y_pred[i])-0.2,1.2))
-        ax.set_ylim((np.min(y_true[i])-0.2,1.2))
-        ax.legend(['Predictions thin COT <3.6',
-                        'Predictions med COT <23',
-                        'Predictions thick COT <50',
-                        'Zero Error line'])
-        ax.set_xlabel("Prediction")
-        ax.set_ylabel("Ground Truth")
-
+    try:
+        for i,ax in enumerate(ax_3.ravel()):
+            
+            ax.plot(y_pred[i][indices_thin[i],1],y_true[i][indices_thin[i]],'.', markersize=1)
+            ax.plot(y_pred[i][indices_med[i],1],y_true[i][indices_med[i]],'.', markersize=1)
+            ax.plot(y_pred[i][indices_thick[i],1],y_true[i][indices_thick[i]],'.', markersize=1)
+            #plt.plot(cloudy_sort,'.')
+            line=np.linspace(0,1,100)
+            ax.plot(line,line)
+            ax.set_xlim((np.min(y_pred[i])-0.2,1.2))
+            ax.set_ylim((np.min(y_true[i])-0.2,1.2))
+            ax.legend(['Predictions thin COT <3.6',
+                            'Predictions med COT <23',
+                            'Predictions thick COT <50',
+                            'Zero Error line'])
+            ax.set_xlabel("Prediction")
+            ax.set_ylabel("Ground Truth")
+    except:
+        pass
     figs.append(fig_3)
     axs.append(ax_3)
         
@@ -119,56 +123,59 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
     
     fig_4,ax_4=plt.subplots(nrows=nrows,ncols=ncols)
     fig_4.suptitle("Prediction vs Ground Truth, averaged")
-    for i,ax in enumerate(ax_4.ravel()):
-        freq_true=np.zeros(len(bins))
-        freq_pred=np.zeros(len(bins))
+    try:
+        for i,ax in enumerate(ax_4.ravel()):
+            freq_true=np.zeros(len(bins))
+            freq_pred=np.zeros(len(bins))
 
-        freq_true_thin=np.zeros(len(bins))
-        freq_pred_thin=np.zeros(len(bins))
+            freq_true_thin=np.zeros(len(bins))
+            freq_pred_thin=np.zeros(len(bins))
 
-        freq_true_med=np.zeros(len(bins))
-        freq_pred_med=np.zeros(len(bins))
+            freq_true_med=np.zeros(len(bins))
+            freq_pred_med=np.zeros(len(bins))
 
-        y_tmp_thin=y_true[i][indices_thin[i]]
-        y_tmp_med=y_true[i][indices_med[i]]
+            y_tmp_thin=y_true[i][indices_thin[i]]
+            y_tmp_med=y_true[i][indices_med[i]]
 
-        y_tmp_pred_thin=y_pred[i][indices_thin[i]]
-        y_tmp_pred_med=y_pred[i][indices_med[i]]
+            y_tmp_pred_thin=y_pred[i][indices_thin[i]]
+            y_tmp_pred_med=y_pred[i][indices_med[i]]
 
-        for j,edge in enumerate(bins):
-            if j!=0:
-                indices=(y_true[i]>bins[j-1])&(y_true[i]<=edge)
+            for j,edge in enumerate(bins):
+                if j!=0:
+                    indices=(y_true[i]>bins[j-1])&(y_true[i]<=edge)
 
-                ind_t=(y_tmp_thin>bins[j-1])&(y_tmp_thin<=edge)
-                ind_m=(y_tmp_med>bins[j-1])&(y_tmp_med<=edge)
+                    ind_t=(y_tmp_thin>bins[j-1])&(y_tmp_thin<=edge)
+                    ind_m=(y_tmp_med>bins[j-1])&(y_tmp_med<=edge)
 
-                mean_bin_true=np.mean(y_true[i][indices])
-                mean_bin_pred=np.mean(y_pred[i][indices])
+                    mean_bin_true=np.mean(y_true[i][indices])
+                    mean_bin_pred=np.mean(y_pred[i][indices])
 
-                mean_bin_true_thin=np.mean(y_tmp_thin[ind_t])
-                mean_bin_pred_thin=np.mean(y_tmp_pred_thin[ind_t])
+                    mean_bin_true_thin=np.mean(y_tmp_thin[ind_t])
+                    mean_bin_pred_thin=np.mean(y_tmp_pred_thin[ind_t])
 
-                mean_bin_true_med=np.mean(y_tmp_med[ind_m])
-                mean_bin_pred_med=np.mean(y_tmp_pred_med[ind_m])
-                
-                freq_true[j]=mean_bin_true
-                freq_pred[j]=mean_bin_pred
+                    mean_bin_true_med=np.mean(y_tmp_med[ind_m])
+                    mean_bin_pred_med=np.mean(y_tmp_pred_med[ind_m])
+                    
+                    freq_true[j]=mean_bin_true
+                    freq_pred[j]=mean_bin_pred
 
-                freq_true_thin[j]=mean_bin_true_thin
-                freq_pred_thin[j]=mean_bin_pred_thin
+                    freq_true_thin[j]=mean_bin_true_thin
+                    freq_pred_thin[j]=mean_bin_pred_thin
 
-                freq_true_med[j]=mean_bin_true_med
-                freq_pred_med[j]=mean_bin_pred_med
+                    freq_true_med[j]=mean_bin_true_med
+                    freq_pred_med[j]=mean_bin_pred_med
 
-        ax.plot(freq_pred,freq_true,'.')
-        ax.plot(freq_pred_thin,freq_true_thin,'.')
-        ax.plot(freq_pred_med,freq_true_med,'.')
-        #plt.plot(cloudy_sort,'.')
-        line=np.linspace(0,1,100)
-        ax.plot(line,line)
-        ax.legend(['All predictions','Thin predictions','Medium predictions'])
-        ax.set_xlabel("Prediction")
-        ax.set_ylabel("Ground Truth")
+            ax.plot(freq_pred,freq_true,'.')
+            ax.plot(freq_pred_thin,freq_true_thin,'.')
+            ax.plot(freq_pred_med,freq_true_med,'.')
+            #plt.plot(cloudy_sort,'.')
+            line=np.linspace(0,1,100)
+            ax.plot(line,line)
+            ax.legend(['All predictions','Thin predictions','Medium predictions'])
+            ax.set_xlabel("Prediction")
+            ax.set_ylabel("Ground Truth")
+    except:
+        pass
 
     figs.append(fig_4)
     axs.append(ax_4)
@@ -194,22 +201,25 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
     # Plot the values
     fig_5, ax_5 = plt.subplots(nrows=nrows,ncols=ncols)
     fig_5.suptitle("Reflectivity and uncertainty")
-    for i,ax in enumerate(ax_5.ravel()):
-        ax.plot(y_true_sort_samp[i],'.',label='Ground Truth')
-        ax.errorbar(x=np.linspace(0,len(y_pred_sort_samp[i][:,1]),len(y_pred_sort_samp[i][:,1]))
-                    ,y=y_pred_sort_samp[i][:,1],
-                    yerr=[np.abs(y_pred_sort_samp[i][:,1]-y_pred_sort_samp[i][:,0]),
-                        np.abs(y_pred_sort_samp[i][:,1]-y_pred_sort_samp[i][:,2])],
-                            marker='.',fmt='.',label='Predictions')
+    try:
+        for i,ax in enumerate(ax_5.ravel()):
+            ax.plot(y_true_sort_samp[i],'.',label='Ground Truth')
+            ax.errorbar(x=np.linspace(0,len(y_pred_sort_samp[i][:,1]),len(y_pred_sort_samp[i][:,1]))
+                        ,y=y_pred_sort_samp[i][:,1],
+                        yerr=[np.abs(y_pred_sort_samp[i][:,1]-y_pred_sort_samp[i][:,0]),
+                            np.abs(y_pred_sort_samp[i][:,1]-y_pred_sort_samp[i][:,2])],
+                                marker='.',fmt='.',label='Predictions')
 
-        percent=0.1
-        ax.plot(y_true_sort_samp[i]-y_true_sort_samp[i]*percent,'g',label='percent')
-        ax.plot(y_true_sort_samp[i]+y_true_sort_samp[i]*percent,'g',label='percent')
-        ax.set_xlabel("Arbitrary samples")
-        ax.set_ylabel("Reflectivity")
-        ax.set_ylim((0,1.2))
-        ax.legend()
-
+            percent=0.1
+            ax.plot(y_true_sort_samp[i]-y_true_sort_samp[i]*percent,'g',label='percent')
+            ax.plot(y_true_sort_samp[i]+y_true_sort_samp[i]*percent,'g',label='percent')
+            ax.set_xlabel("Arbitrary samples")
+            ax.set_ylabel("Reflectivity")
+            ax.set_ylim((0,1.2))
+            ax.legend()
+    except:
+        pass
+    
     figs.append(fig_5)
     axs.append(ax_5)
 
