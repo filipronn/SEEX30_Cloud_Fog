@@ -152,3 +152,15 @@ def noise_map(features, labels):
 
 training_data = training_data.map(noise_map)
 training_data_classes = training_data_classes.map(noise_map)
+
+low_vis_i_train = np.where(target_scaler.inverse_transform(y_train) < low_vis_threshold)[0]
+X_low_vis_train = X_train_noisy[low_vis_i_train]
+y_low_vis_train = np.log(target_scaler.inverse_transform(y_train[low_vis_i_train]))
+
+low_vis_i_val = np.where(target_scaler.inverse_transform(y_val) < low_vis_threshold)[0]
+X_low_vis_val = X_val_noisy[low_vis_i_val]
+y_low_vis_val = np.log(target_scaler.inverse_transform(y_val[low_vis_i_val]))
+
+low_vis_i_test = np.where(target_scaler.inverse_transform(y_test) < low_vis_threshold)[0]
+X_low_vis_test = X_test_noisy[low_vis_i_test]
+y_low_vis_test = np.log(target_scaler.inverse_transform(y_test[low_vis_i_test]))
