@@ -6,7 +6,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 
 
-def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,samples=100,is_ensemble=True):
+def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,samples=100,is_ensemble=True,index_median=1):
     # models - array of models to plot from
     # X_test - array of test data for X
     # y_tests - array of test data fro y
@@ -67,7 +67,7 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
         else:
             y_test_tmp=y_test_tmp[:,0]
 
-        residuals.append(y_test_tmp-y_pred_tmp[:,1])
+        residuals.append(y_test_tmp-y_pred_tmp[:,index_median])
         y_true.append(y_test_tmp)
         y_pred.append(y_pred_tmp)
 
@@ -219,10 +219,10 @@ def plot_metrics(models,X_tests,y_tests,predictions,df,nrows,ncols,index_y=10,sa
     try:
         for i,ax in enumerate(ax_5.ravel()):
             ax.plot(y_true_sort_samp[i],'.',label='Ground Truth')
-            ax.errorbar(x=np.linspace(0,len(y_pred_sort_samp[i][:,1]),len(y_pred_sort_samp[i][:,1]))
-                        ,y=y_pred_sort_samp[i][:,1],
-                        yerr=[np.abs(y_pred_sort_samp[i][:,1]-y_pred_sort_samp[i][:,0]),
-                            np.abs(y_pred_sort_samp[i][:,1]-y_pred_sort_samp[i][:,2])],
+            ax.errorbar(x=np.linspace(0,len(y_pred_sort_samp[i][:,index_median]),len(y_pred_sort_samp[i][:,index_median]))
+                        ,y=y_pred_sort_samp[i][:,index_median],
+                        yerr=[np.abs(y_pred_sort_samp[i][:,index_median]-y_pred_sort_samp[i][:,0]),
+                            np.abs(y_pred_sort_samp[i][:,index_median]-y_pred_sort_samp[i][:,-1])],
                                 marker='.',fmt='.',label='Predictions')
 
             percent=0.1
