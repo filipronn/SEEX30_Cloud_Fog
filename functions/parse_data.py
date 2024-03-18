@@ -14,7 +14,7 @@ def parse(file_name):
     data=data.drop(columns=[0])
     return data
 
-def synth_dataloader(path_name='SMHIdata'):
+def synth_dataloader(path_name='SMHIdata',drop_cols = True):
        #Set path_name to path containing data sets, ensure file names are as below
        #load all data
        data_water=parse(os.path.join(path_name, 'cloudrm2_water.dat'))
@@ -24,7 +24,8 @@ def synth_dataloader(path_name='SMHIdata'):
 
        #Concatenate all datasets, drop unnecessary cols and reset index
        df=pd.concat([data_water,data_clear,data_ice,data_mixed])
-       df=df.drop(columns=['Surface_Desc','Cloud_B01','Clear_B01'])
+       if drop_cols:
+              df=df.drop(columns=['Surface_Desc','Cloud_B01','Clear_B01'])
        df=df.reset_index(drop=True)
 
        return df
