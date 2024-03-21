@@ -21,8 +21,10 @@ from IPython.display import clear_output
 
 
 class QuantileNetworkMM(nn.Module):
-    def __init__(self,n_out, y_mean, y_std, seq, device):
+    def __init__(self,n_out,tX_mean,tX_std, y_mean, y_std, seq, device):
         super(QuantileNetworkMM, self).__init__()
+        self.tX_mean = tX_mean
+        self.tX_std = tX_std
         self.y_mean = y_mean
         self.y_std = y_std
         self.n_out=n_out
@@ -48,13 +50,10 @@ class QuantileNetworkMM(nn.Module):
         self.eval()
         self.zero_grad()
         tX=torch.tensor(x,dtype=torch.float,device=self.device)
-        tX_mean = torch.mean(tX,0)
-        tX_std = torch.std(tX,0)
-        tX = (tX-tX_mean)/tX_std
+        tX = (tX-self.tX_mean)/self.tX_std
         norm_out = self.forward(tX)
         out = norm_out.data.cpu() * self.y_std[...,None] + self.y_mean[...,None]
         return out.data.cpu().numpy()
-        #return norm_out.data.cpu().numpy()
 
 class QuantileNetwork():
     def __init__(self,quantiles,loss='quantile'):
@@ -142,6 +141,8 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     y_std=y.std(axis=0, keepdims=True)
     #Turn inputs to tensors
     tX = torch.tensor(X,dtype=torch.float,device=device)
+    tX_mean = torch.mean(tX,0)
+    tX_std = torch.std(tX,0)
     tY = torch.tensor(y,dtype=torch.float,device=device)
     tquantiles = torch.tensor(quantiles,dtype=torch.float,device=device)
     #Normalize y
@@ -154,7 +155,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     val_losses=torch.zeros(n_epochs,device=device)
     val_losses[0]=10000000 #For finding lowest new validation error later
 
-    model=QuantileNetworkMM(n_out,y_mean,y_std,seq=sequence,device=device)
+    model=QuantileNetworkMM(n_out,tX_mean,tX_std,y_mean,y_std,seq=sequence,device=device)
 
     optimizer = optim.Adam(model.parameters(),lr=lr) #Set optimiser
 
