@@ -26,7 +26,10 @@ INPUT_NOISE_VAL = 0.00  # Add 0-mean white noise with std being a fraction of th
 SKIP_BAND_10 = False  # True --> Skip band 10 as input (may be needed for Skogsstyrelsen data)
 SKIP_BAND_1 = True  # True --> Skip band 1 (SKIP_BAND_1 should always be True, as the band currently does not make sense in the data; further work needed in that direction in future work)
 PROPERTY_COLUMN_MAPPING = {'spec_bands': [i for i in range(1 + SKIP_BAND_1, 14)], 'angles': [14, 15, 16], 'thick': [17], 'type': [18], 'prof_id': [19], 'gas_vapour': [20, 21], 'surf_prof': [22],'Sun_Zen':[15]}
+
+#INPUTS = ['spec_bands']  # Add keys from PROPERTY_COLUMN_MAPPING to use those as inputs
 INPUTS = ['spec_bands','Sun_Zen']  # Add keys from PROPERTY_COLUMN_MAPPING to use those as inputs
+
 REGRESSOR = 'thick'  # Can be set to any other key in PROPERTY_COLUMN_MAPPING to regress that instead
 MODEL_LOAD_PATH = None  # None --> Model randomly initialized. Set to string pointing to model weights to init with those weights.
 UNIFORM_DIST_NO_CLOUD_THIN_CLOUD_REG_CLOUD = True  # Ensures that we train evenly in the 'clear', 'thin-cloud' and 'opaque-cloud' regimes

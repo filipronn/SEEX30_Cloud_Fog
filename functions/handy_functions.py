@@ -46,3 +46,8 @@ def add_MSI_noise(df,x_labels):
         df[label]=col+noise
 
     return df
+
+def dumb_down_surface(df):
+
+    df['Surface_Desc_Dumb']=df['Surface_Desc'].str.split('-').str[0]
+    return df
